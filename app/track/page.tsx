@@ -173,6 +173,11 @@ function TrackContent() {
       await supabase.from("orders").update({ slip_image_url: urlData.publicUrl }).eq("id", order.id);
       setSlipUploaded(true);
       setOrder({ ...order, slip_image_url: urlData.publicUrl });
+      fetch("/api/notify-slip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order_id: order.id }),
+      }).catch(() => {});
     } catch (err) {
       setSlipError(err instanceof Error ? err.message : "Upload failed");
     } finally {

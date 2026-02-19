@@ -92,6 +92,11 @@ function OrderSuccessContent() {
       if (updateErr) throw updateErr;
       setSlipUploaded(true);
       setSlipPreview(urlData.publicUrl);
+      fetch("/api/notify-slip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order_id: orderId }),
+      }).catch(() => {});
     } catch (err) {
       setSlipError(err instanceof Error ? err.message : "Upload failed");
     } finally {
