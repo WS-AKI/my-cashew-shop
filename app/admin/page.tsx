@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Image from "next/image";
-import { Lock, ShoppingBag, MapPin, Package, Loader2, ImageIcon } from "lucide-react";
+import { Lock, ShoppingBag, MapPin, Package, Loader2, ImageIcon, MessageCircle, Send, Store, User } from "lucide-react";
 
 const ADMIN_PIN = "607051";
 const PIN_STORAGE_KEY = "admin-unlocked";
@@ -30,6 +30,13 @@ type OrderItemRow = {
   price?: number | null;
   products?: ProductRow;
 };
+type MsgRow = {
+  id: string;
+  order_id: string;
+  sender: "customer" | "shop";
+  body: string;
+  created_at: string;
+};
 type OrderRow = {
   id: string;
   user_id?: string | null;
@@ -46,6 +53,7 @@ type OrderRow = {
   created_at: string;
   slip_image_url?: string | null;
   order_items?: OrderItemRow[];
+  order_messages?: MsgRow[];
 };
 
 function formatDate(iso: string): string {
@@ -88,6 +96,9 @@ export default function AdminPage() {
             weight_g,
             flavor_color
           )
+        ),
+        order_messages (
+          id, order_id, sender, body, created_at
         )
       `)
       .order("created_at", { ascending: false });
@@ -123,6 +134,20 @@ export default function AdminPage() {
     await supabase.from("orders").update({ status: newStatus }).eq("id", orderId);
     await fetchOrders();
     setUpdatingId(null);
+  }
+
+  const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
+  const [replySending, setReplySending] = useState<string | null>(null);
+
+  async function handleReply(orderId: string) {
+    const body = (replyTexts[orderId] ?? "").trim();
+    if (!body) return;
+    setReplySending(orderId);
+    const supabase = createClient();
+    await supabase.from("order_messages").insert({ order_id: orderId, sender: "shop", body });
+    setReplyTexts((prev) => ({ ...prev, [orderId]: "" }));
+    await fetchOrders();
+    setReplySending(null);
   }
 
   if (!unlocked) {
@@ -318,6 +343,71 @@ export default function AdminPage() {
                       </a>
                     </div>
                   )}
+
+                  {/* Messages */}
+                  {(() => {
+                    const msgs = (order.order_messages ?? []).sort(
+                      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                    );
+                    const customerMsgCount = msgs.filter((m) => m.sender === "customer").length;
+                    return (
+                      <details className="pt-2 border-t border-emerald-50 group">
+                        <summary className="flex items-center gap-2 text-sm text-emerald-600 cursor-pointer list-none">
+                          <MessageCircle size={14} />
+                          ข้อความ · Messages
+                          {customerMsgCount > 0 && (
+                            <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                              {customerMsgCount}
+                            </span>
+                          )}
+                        </summary>
+                        <div className="mt-2 space-y-2 max-h-48 overflow-y-auto">
+                          {msgs.length === 0 && (
+                            <p className="text-gray-400 text-xs text-center py-2">ยังไม่มีข้อความ</p>
+                          )}
+                          {msgs.map((msg) => (
+                            <div key={msg.id} className={`flex gap-1.5 ${msg.sender === "shop" ? "justify-end" : "justify-start"}`}>
+                              {msg.sender === "customer" && (
+                                <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                  <User size={10} className="text-gray-500" />
+                                </div>
+                              )}
+                              <div className={`max-w-[80%] rounded-xl px-2.5 py-1.5 text-xs ${msg.sender === "shop" ? "bg-emerald-500 text-white" : "bg-gray-100 text-gray-700"}`}>
+                                <p className="whitespace-pre-wrap">{msg.body}</p>
+                                <p className={`text-[9px] mt-0.5 ${msg.sender === "shop" ? "text-white/60" : "text-gray-400"}`}>
+                                  {new Date(msg.created_at).toLocaleString("th-TH", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                                </p>
+                              </div>
+                              {msg.sender === "shop" && (
+                                <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                                  <Store size={10} className="text-emerald-600" />
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        <form
+                          onSubmit={(e) => { e.preventDefault(); handleReply(order.id); }}
+                          className="mt-2 flex gap-1.5"
+                        >
+                          <input
+                            type="text"
+                            value={replyTexts[order.id] ?? ""}
+                            onChange={(e) => setReplyTexts((prev) => ({ ...prev, [order.id]: e.target.value }))}
+                            placeholder="ตอบกลับ... / Reply..."
+                            className="flex-1 px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-800 placeholder:text-gray-400 focus:border-emerald-400 focus:outline-none"
+                          />
+                          <button
+                            type="submit"
+                            disabled={replySending === order.id || !(replyTexts[order.id] ?? "").trim()}
+                            className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold disabled:opacity-50 flex items-center gap-1"
+                          >
+                            {replySending === order.id ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+                          </button>
+                        </form>
+                      </details>
+                    );
+                  })()}
                 </div>
                     </>
                   );

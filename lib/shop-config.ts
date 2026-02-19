@@ -69,5 +69,5 @@ export const BANK_INFO = {
   accountNameTH: "น.ส. จิราพร เคหะลูน",
   accountNumber: "004-3-70237-8",
   /** Path to PromptPay QR image in /public. Empty = hide QR section. */
-  promptPayQrPath: "/promptpay-qr.jpg",
+  promptPayQrPath: "",
 } as const;
