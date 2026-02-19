@@ -449,7 +449,7 @@ export default function CheckoutPage() {
                           <span className={onSale ? "text-red-500 font-semibold" : "text-gray-500"}>
                             ฿{unitPrice.toLocaleString()}
                           </span>
-                          <span className="text-gray-400">× {quantity} =</span>
+                          <span className="text-gray-400">x{quantity} =</span>
                           <span className={`font-bold ${onSale ? "text-red-500" : "text-gray-700"}`}>
                             ฿{(unitPrice * quantity).toLocaleString()}
                           </span>

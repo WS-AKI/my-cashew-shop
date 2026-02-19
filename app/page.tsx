@@ -123,23 +123,7 @@ export default function HomePage() {
           </Suspense>
         </section>
 
-        {/* ─── CTA バナー ──────────────────────────────────────── */}
-        <section className="bg-gradient-to-r from-amber-500 to-orange-500 py-16 px-4 text-center">
-          <h2 className="text-white font-extrabold text-2xl sm:text-3xl mb-3">
-            はじめてのご注文、送料無料！
-          </h2>
-          <p className="text-white/80 mb-8 text-sm sm:text-base">
-            3個セットからお得な割引が適用されます。
-            ぜひこの機会にお試しください。
-          </p>
-          <Link
-            href="#products"
-            className="inline-flex items-center gap-2 bg-white text-amber-600 font-bold text-lg px-8 py-4 rounded-2xl shadow-lg hover:bg-amber-50 transition-all active:scale-95"
-          >
-            今すぐ注文する
-            <ChevronRight size={20} />
-          </Link>
-        </section>
+      
       </main>
 
       <Footer />

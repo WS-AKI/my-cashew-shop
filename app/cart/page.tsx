@@ -110,7 +110,7 @@ export default function CartPage() {
                         <span className={`font-semibold ${onSale ? "text-red-500" : "text-amber-600"}`}>
                           ฿{unitPrice.toLocaleString()}
                         </span>
-                        <span className="text-gray-500">× {quantity} =</span>
+                        <span className="text-gray-500">x{quantity} =</span>
                         <span className={`font-bold ${onSale ? "text-red-500" : "text-amber-600"}`}>
                           ฿{lineTotal.toLocaleString()}
                         </span>

@@ -297,7 +297,7 @@ export default function AdminPage() {
                               {weightLabel && (
                                 <span className="ml-1 text-xs text-gray-400">{weightLabel}</span>
                               )}
-                              {" "}× {item.quantity}
+                              {" "}x{item.quantity}
                             </span>
                             <span>฿{(lineUnitPrice * item.quantity).toLocaleString()}</span>
                           </li>
