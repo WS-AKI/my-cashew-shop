@@ -41,6 +41,12 @@ export default function Header() {
           >
             私たちについて
           </Link>
+          <Link
+            href="/track"
+            className="hover:text-amber-600 transition-colors"
+          >
+            注文確認
+          </Link>
         </nav>
 
         {/* カートアイコン */}
