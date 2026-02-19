@@ -24,3 +24,15 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Hero carousel pagination */
+.swiper-pagination-bullet {
+  background: rgba(255, 255, 255, 0.6);
+  width: 10px;
+  height: 10px;
+}
+.swiper-pagination-bullet-active {
+  background: #fff;
+  width: 28px;
+  border-radius: 5px;
+}
