@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useCart } from "@/context/CartContext";
 import { createClient } from "@/lib/supabase/client";
-import { getItemPrice, getItemOriginalPrice, FLAVOR_COLORS, FlavorColor } from "@/types";
+import { getItemPrice, getItemOriginalPrice, FLAVOR_COLORS, FlavorColor, flavorSummary, serializeFlavors } from "@/types";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { DualLanguageLabel } from "@/components/ui/DualLanguageLabel";
@@ -306,13 +306,26 @@ export default function CheckoutPage() {
       }
 
       if (orderId) {
-        const orderItemsBase = items.map((item) => ({
-          order_id: orderId,
-          product_id: item.product.id,
-          quantity: item.quantity,
-          priceValue: getItemPrice(item) || 0,
-        }));
+        const orderItemsBase = items.map((item) => {
+          const flavorsObj = item.selectedFlavors;
+          const hasFlavors = flavorsObj && Object.values(flavorsObj).some((v) => v > 0);
+          return {
+            order_id: orderId,
+            product_id: item.product.id,
+            quantity: item.quantity,
+            priceValue: getItemPrice(item) || 0,
+            meta: hasFlavors ? { flavors: flavorsObj } : {},
+          };
+        });
         const itemVariants: Record<string, unknown>[][] = [
+          orderItemsBase.map((x) => ({
+            order_id: x.order_id,
+            product_id: x.product_id,
+            quantity: x.quantity,
+            unit_price: x.priceValue,
+            price_at_purchase: x.priceValue || 0,
+            meta: x.meta,
+          })),
           orderItemsBase.map((x) => ({
             order_id: x.order_id,
             product_id: x.product_id,
@@ -400,13 +413,15 @@ export default function CheckoutPage() {
           </div>
           <ul className="divide-y divide-gray-100">
             {items.map((item) => {
-              const { product, quantity, selectedSizeG } = item;
+              const { product, quantity, selectedSizeG, selectedFlavors } = item;
               const unitPrice = getItemPrice(item);
               const flavor = product.flavor_color && product.flavor_color in FLAVOR_COLORS
                 ? FLAVOR_COLORS[product.flavor_color as FlavorColor]
                 : null;
+              const flavorList = flavorSummary(selectedFlavors);
+              const itemKey = `${product.id}-${selectedSizeG ?? "set"}-${serializeFlavors(selectedFlavors)}`;
               return (
-                <li key={`${product.id}-${selectedSizeG ?? "set"}`} className="flex gap-4 p-4">
+                <li key={itemKey} className="flex gap-4 p-4">
                   <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-amber-50 flex-shrink-0">
                     {product.image_url ? (
                       <Image
@@ -424,7 +439,7 @@ export default function CheckoutPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-gray-800 text-sm truncate">{product.name_ja}</p>
-                    <div className="flex items-center gap-1.5 mt-0.5">
+                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                       {flavor && (
                         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${flavor.bg} ${flavor.text}`}>
                           {flavor.label}
@@ -436,6 +451,11 @@ export default function CheckoutPage() {
                         </span>
                       )}
                     </div>
+                    {flavorList.length > 0 && (
+                      <p className="text-[10px] text-orange-600 mt-0.5 leading-snug">
+                        {flavorList.join(", ")}
+                      </p>
+                    )}
                     {(() => {
                       const origPrice = getItemOriginalPrice(item);
                       const onSale = origPrice > unitPrice;

@@ -17,6 +17,8 @@ import {
   ShoppingBag,
   Star,
   SortAsc,
+  FileText,
+  Hash,
 } from "lucide-react";
 
 type ProductFormProps = {
@@ -32,6 +34,8 @@ type SizePrices = Record<number, string>;
 type FormData = {
   name_ja: string;
   name_th: string;
+  description_ja: string;
+  description_th: string;
   price: string;
   sale_price: string;
   stock: string;
@@ -41,6 +45,7 @@ type FormData = {
   flavor_color: FlavorColor | "";
   weight_g: string;
   is_set: boolean;
+  set_quantity: string;
   sizePrices: SizePrices;
   sizeSalePrices: SizePrices;
 };
@@ -71,9 +76,10 @@ function buildInitialForm(product?: Product): FormData {
   if (!product) {
     return {
       name_ja: "", name_th: "",
+      description_ja: "", description_th: "",
       price: "", sale_price: "", stock: "0", display_order: "0",
       is_active: true, is_promotion: false,
-      flavor_color: "", weight_g: "", is_set: false,
+      flavor_color: "", weight_g: "", is_set: false, set_quantity: "",
       sizePrices: buildInitialSizePrices(),
       sizeSalePrices: buildInitialSizeSalePrices(),
     };
@@ -81,6 +87,8 @@ function buildInitialForm(product?: Product): FormData {
   return {
     name_ja: product.name_ja,
     name_th: product.name_th ?? "",
+    description_ja: product.description_ja ?? "",
+    description_th: product.description_th ?? "",
     price: String(product.price),
     sale_price: product.sale_price ? String(product.sale_price) : "",
     stock: String(product.stock),
@@ -90,6 +98,7 @@ function buildInitialForm(product?: Product): FormData {
     flavor_color: product.flavor_color ?? "",
     weight_g: product.weight_g ? String(product.weight_g) : "",
     is_set: product.is_set,
+    set_quantity: product.set_quantity ? String(product.set_quantity) : "",
     sizePrices: buildInitialSizePrices(product.price_variants),
     sizeSalePrices: buildInitialSizeSalePrices(product.price_variants),
   };
@@ -265,6 +274,8 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     const payload: Record<string, unknown> = {
       name_ja: form.name_ja.trim() || "",
       name_th: form.name_th.trim() || "",
+      description_ja: form.description_ja.trim() || null,
+      description_th: form.description_th.trim() || null,
       price: Math.floor(form.is_set ? Number(form.price) || 0 : basePrice),
       sale_price: salePrice !== null ? Math.floor(salePrice) : null,
       stock: Math.floor(Number(form.stock)) || 0,
@@ -275,6 +286,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       flavor_color: form.flavor_color || "",
       weight_g: form.weight_g ? Math.floor(Number(form.weight_g)) : 0,
       is_set: form.is_set,
+      set_quantity: form.is_set && form.set_quantity ? Math.floor(Number(form.set_quantity)) : null,
       price_variants: priceVariants,
     };
 
@@ -372,6 +384,30 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
           />
         </div>
 
+        {/* Description JA */}
+        <div>
+          <Label icon={FileText} color="text-teal-500">紹介文（日本語）</Label>
+          <textarea
+            value={form.description_ja}
+            onChange={(e) => setForm({ ...form, description_ja: e.target.value })}
+            placeholder="例：香ばしく焙煎した定番の味。おやつやお酒のお供に。"
+            rows={2}
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent transition resize-none text-sm"
+          />
+        </div>
+
+        {/* Description TH */}
+        <div>
+          <Label icon={FileText} color="text-teal-500">紹介文（タイ語）</Label>
+          <textarea
+            value={form.description_th}
+            onChange={(e) => setForm({ ...form, description_th: e.target.value })}
+            placeholder="เช่น คั่วหอมกรุ่น รสชาติดั้งเดิม"
+            rows={2}
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent transition resize-none text-sm"
+          />
+        </div>
+
         {/* Flavor */}
         <div>
           <Label icon={Tag} color="text-purple-500">味・種類</Label>
@@ -420,9 +456,26 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
             />
           </div>
           {form.is_set && (
-            <p className="text-xs text-orange-600 bg-orange-100 rounded-lg p-2.5 mt-2 leading-relaxed">
-              セット商品はサイズ選択なし。下の「定価」にセット価格を入力してください。
-            </p>
+            <div className="mt-3 space-y-2">
+              <p className="text-xs text-orange-600 bg-orange-100 rounded-lg p-2.5 leading-relaxed">
+                セット商品はサイズ選択なし。下の「定価」にセット価格を入力してください。
+              </p>
+              <div>
+                <label className="flex items-center gap-1.5 text-xs font-semibold text-orange-700 mb-1">
+                  <Hash size={12} />
+                  セット内の袋数 *
+                </label>
+                <Input
+                  type="number"
+                  value={form.set_quantity}
+                  onChange={(e) => setForm({ ...form, set_quantity: e.target.value })}
+                  placeholder="例: 3（3袋セット）"
+                  min="1"
+                  ring="focus:ring-orange-400"
+                />
+                <p className="text-[10px] text-gray-500 mt-1">お客様が選べる味の合計数になります</p>
+              </div>
+            </div>
           )}
         </div>
 

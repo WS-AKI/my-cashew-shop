@@ -5,6 +5,24 @@ import { createClient } from "@/lib/supabase/client";
 import Image from "next/image";
 import { Lock, ShoppingBag, MapPin, Package, Loader2, ImageIcon, MessageCircle, Send, Store, User } from "lucide-react";
 
+const FLAVOR_LABELS: Record<string, string> = {
+  original: "オリジナル",
+  cheese: "チーズ",
+  bbq: "BBQ",
+  nori: "のり",
+  tomyum: "トムヤム",
+};
+
+function formatMetaFlavors(meta: Record<string, unknown> | null | undefined): string {
+  if (!meta || typeof meta !== "object") return "";
+  const flavors = meta.flavors as Record<string, number> | undefined;
+  if (!flavors || typeof flavors !== "object") return "";
+  return Object.entries(flavors)
+    .filter(([, count]) => typeof count === "number" && count > 0)
+    .map(([key, count]) => `${FLAVOR_LABELS[key] ?? key} x${count}`)
+    .join(", ");
+}
+
 const ADMIN_PIN = "607051";
 const PIN_STORAGE_KEY = "admin-unlocked";
 
@@ -28,6 +46,7 @@ type OrderItemRow = {
   quantity: number;
   unit_price?: number | null;
   price?: number | null;
+  meta?: Record<string, unknown> | null;
   products?: ProductRow;
 };
 type MsgRow = {
@@ -287,19 +306,22 @@ export default function AdminPage() {
                           `#${item.product_id.slice(0, 6)}`;
                         const weightLabel = item.products?.weight_g ? `${item.products.weight_g}g` : "";
                         const lineUnitPrice = item.unit_price ?? item.price ?? 0;
+                        const flavorStr = formatMetaFlavors(item.meta);
                         return (
-                          <li
-                            key={item.id ?? i}
-                            className="flex justify-between text-sm text-gray-700"
-                          >
-                            <span>
-                              {name}
-                              {weightLabel && (
-                                <span className="ml-1 text-xs text-gray-400">{weightLabel}</span>
-                              )}
-                              {" "}x{item.quantity}
-                            </span>
-                            <span>฿{(lineUnitPrice * item.quantity).toLocaleString()}</span>
+                          <li key={item.id ?? i} className="text-sm text-gray-700">
+                            <div className="flex justify-between">
+                              <span>
+                                {name}
+                                {weightLabel && (
+                                  <span className="ml-1 text-xs text-gray-400">{weightLabel}</span>
+                                )}
+                                {" "}x{item.quantity}
+                              </span>
+                              <span>฿{(lineUnitPrice * item.quantity).toLocaleString()}</span>
+                            </div>
+                            {flavorStr && (
+                              <p className="text-[10px] text-orange-500 pl-2 mt-0.5">{flavorStr}</p>
+                            )}
                           </li>
                         );
                       })}

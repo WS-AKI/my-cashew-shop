@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useCart } from "@/context/CartContext";
-import { getItemPrice, getItemOriginalPrice, FLAVOR_COLORS, FlavorColor } from "@/types";
+import { getItemPrice, getItemOriginalPrice, FLAVOR_COLORS, FlavorColor, flavorSummary, serializeFlavors } from "@/types";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { DualLanguageLabel } from "@/components/ui/DualLanguageLabel";
@@ -55,15 +55,17 @@ export default function CartPage() {
 
         <ul className="space-y-4">
           {items.map((item) => {
-            const { product, quantity, selectedSizeG } = item;
+            const { product, quantity, selectedSizeG, selectedFlavors } = item;
             const unitPrice = getItemPrice(item);
             const lineTotal = unitPrice * quantity;
             const flavor = product.flavor_color && product.flavor_color in FLAVOR_COLORS
               ? FLAVOR_COLORS[product.flavor_color as FlavorColor]
               : null;
+            const flavorList = flavorSummary(selectedFlavors);
+            const itemKey = `${product.id}-${selectedSizeG ?? "set"}-${serializeFlavors(selectedFlavors)}`;
             return (
               <li
-                key={`${product.id}-${selectedSizeG ?? "set"}`}
+                key={itemKey}
                 className="bg-white rounded-2xl shadow-sm border border-amber-100 overflow-hidden flex gap-4 p-4"
               >
                 <div className="relative w-24 h-24 rounded-xl overflow-hidden bg-amber-50 flex-shrink-0">
@@ -85,7 +87,7 @@ export default function CartPage() {
                   <h3 className="font-bold text-gray-800 text-sm leading-tight truncate">
                     {product.name_ja}
                   </h3>
-                  <div className="flex items-center gap-1.5 mt-0.5">
+                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                     {flavor && (
                       <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${flavor.bg} ${flavor.text}`}>
                         {flavor.label}
@@ -97,6 +99,11 @@ export default function CartPage() {
                       </span>
                     )}
                   </div>
+                  {flavorList.length > 0 && (
+                    <p className="text-[10px] text-orange-600 mt-0.5 leading-snug">
+                      {flavorList.join(", ")}
+                    </p>
+                  )}
                   {(() => {
                     const origPrice = getItemOriginalPrice(item);
                     const onSale = origPrice > unitPrice;
@@ -125,7 +132,7 @@ export default function CartPage() {
                   <div className="flex items-center gap-2 mt-3">
                     <button
                       type="button"
-                      onClick={() => updateQuantity(product.id, quantity - 1, selectedSizeG)}
+                      onClick={() => updateQuantity(product.id, quantity - 1, selectedSizeG, selectedFlavors)}
                       className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center active:scale-95"
                       aria-label={T.decrease.ja}
                     >
@@ -136,7 +143,7 @@ export default function CartPage() {
                     </span>
                     <button
                       type="button"
-                      onClick={() => updateQuantity(product.id, quantity + 1, selectedSizeG)}
+                      onClick={() => updateQuantity(product.id, quantity + 1, selectedSizeG, selectedFlavors)}
                       className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center active:scale-95"
                       aria-label={T.increase.ja}
                     >
@@ -144,7 +151,7 @@ export default function CartPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => removeFromCart(product.id, selectedSizeG)}
+                      onClick={() => removeFromCart(product.id, selectedSizeG, selectedFlavors)}
                       className="ml-auto w-10 h-10 rounded-xl bg-red-50 text-red-500 flex items-center justify-center active:scale-95"
                       aria-label={T.remove.ja}
                     >

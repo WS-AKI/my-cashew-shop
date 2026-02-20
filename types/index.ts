@@ -75,6 +75,8 @@ export type Product = {
   id: string;
   name_ja: string;
   name_th: string | null;
+  description_ja: string | null;
+  description_th: string | null;
   price: number;
   sale_price: number | null;
   image_url: string | null;
@@ -85,15 +87,35 @@ export type Product = {
   flavor_color: FlavorColor | null;
   weight_g: number | null;
   is_set: boolean;
+  set_quantity: number | null;
   price_variants: PriceVariant[];
   created_at: string;
 };
+
+export type FlavorSelection = Record<FlavorColor, number>;
 
 export type CartItem = {
   product: Product;
   quantity: number;
   selectedSizeG: number | null;
+  selectedFlavors: FlavorSelection | null;
 };
+
+export function serializeFlavors(flavors: FlavorSelection | null): string {
+  if (!flavors) return "";
+  return Object.entries(flavors)
+    .filter(([, count]) => count > 0)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => `${k}=${v}`)
+    .join(",");
+}
+
+export function flavorSummary(flavors: FlavorSelection | null): string[] {
+  if (!flavors) return [];
+  return (Object.entries(flavors) as [FlavorColor, number][])
+    .filter(([, count]) => count > 0)
+    .map(([key, count]) => `${FLAVOR_COLORS[key].label} x${count}`);
+}
 
 export function getVariantForSize(
   product: Product,

@@ -6,9 +6,11 @@ import "swiper/css";
 import "swiper/css/pagination";
 
 const SLIDES = [
-  { id: "1", url: "https://picsum.photos/seed/cashew1/1200/514", alt: "Hero 1" },
-  { id: "2", url: "https://picsum.photos/seed/cashew2/1200/514", alt: "Hero 2" },
-  { id: "3", url: "https://picsum.photos/seed/cashew3/1200/514", alt: "Hero 3" },
+  { id: "1", url: "/hero/slide-5.png", alt: "Sam Sian カシューナッツ商品" },
+  { id: "2", url: "/hero/slide-2.png", alt: "カシューナッツの収穫と選別" },
+  { id: "3", url: "/hero/slide-3.png", alt: "カシューナッツの実" },
+  { id: "4", url: "/hero/slide-4.png", alt: "丁寧な手作業" },
+  { id: "5", url: "/hero/slide-1.png", alt: "Sam Sian パッケージ商品" },
 ];
 
 export default function HeroCarousel() {

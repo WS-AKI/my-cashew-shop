@@ -9,7 +9,7 @@ import {
   useEffect,
   ReactNode,
 } from "react";
-import { CartItem, Product, getItemPrice } from "@/types";
+import { CartItem, Product, FlavorSelection, getItemPrice, serializeFlavors } from "@/types";
 
 const CART_STORAGE_KEY = "cashew-shop-cart";
 
@@ -28,15 +28,17 @@ export function getNextDiscountStep(totalQuantity: number): {
   return null;
 }
 
-function cartItemKey(productId: string, sizeG: number | null): string {
-  return sizeG ? `${productId}__${sizeG}` : productId;
+function cartItemKey(productId: string, sizeG: number | null, flavors?: FlavorSelection | null): string {
+  const base = sizeG ? `${productId}__${sizeG}` : productId;
+  const flavorStr = serializeFlavors(flavors ?? null);
+  return flavorStr ? `${base}__f:${flavorStr}` : base;
 }
 
 type CartContextType = {
   items: CartItem[];
-  addToCart: (product: Product, quantity?: number, sizeG?: number | null) => void;
-  removeFromCart: (productId: string, sizeG?: number | null) => void;
-  updateQuantity: (productId: string, quantity: number, sizeG?: number | null) => void;
+  addToCart: (product: Product, quantity?: number, sizeG?: number | null, flavors?: FlavorSelection | null) => void;
+  removeFromCart: (productId: string, sizeG?: number | null, flavors?: FlavorSelection | null) => void;
+  updateQuantity: (productId: string, quantity: number, sizeG?: number | null, flavors?: FlavorSelection | null) => void;
   clearCart: () => void;
   totalQuantity: number;
   subtotal: number;
@@ -84,31 +86,31 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [items, hydrated]);
 
   const addToCart = useCallback(
-    (product: Product, quantity = 1, sizeG: number | null = null) => {
+    (product: Product, quantity = 1, sizeG: number | null = null, flavors: FlavorSelection | null = null) => {
       setItems((prev) => {
-        const key = cartItemKey(product.id, sizeG);
+        const key = cartItemKey(product.id, sizeG, flavors);
         const existing = prev.find(
-          (item) => cartItemKey(item.product.id, item.selectedSizeG) === key
+          (item) => cartItemKey(item.product.id, item.selectedSizeG, item.selectedFlavors) === key
         );
         if (existing) {
           return prev.map((item) =>
-            cartItemKey(item.product.id, item.selectedSizeG) === key
+            cartItemKey(item.product.id, item.selectedSizeG, item.selectedFlavors) === key
               ? { ...item, quantity: item.quantity + quantity }
               : item
           );
         }
-        return [...prev, { product, quantity, selectedSizeG: sizeG }];
+        return [...prev, { product, quantity, selectedSizeG: sizeG, selectedFlavors: flavors }];
       });
     },
     []
   );
 
   const removeFromCart = useCallback(
-    (productId: string, sizeG: number | null = null) => {
-      const key = cartItemKey(productId, sizeG);
+    (productId: string, sizeG: number | null = null, flavors: FlavorSelection | null = null) => {
+      const key = cartItemKey(productId, sizeG, flavors);
       setItems((prev) =>
         prev.filter(
-          (item) => cartItemKey(item.product.id, item.selectedSizeG) !== key
+          (item) => cartItemKey(item.product.id, item.selectedSizeG, item.selectedFlavors) !== key
         )
       );
     },
@@ -116,19 +118,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
   );
 
   const updateQuantity = useCallback(
-    (productId: string, quantity: number, sizeG: number | null = null) => {
-      const key = cartItemKey(productId, sizeG);
+    (productId: string, quantity: number, sizeG: number | null = null, flavors: FlavorSelection | null = null) => {
+      const key = cartItemKey(productId, sizeG, flavors);
       if (quantity <= 0) {
         setItems((prev) =>
           prev.filter(
-            (item) => cartItemKey(item.product.id, item.selectedSizeG) !== key
+            (item) => cartItemKey(item.product.id, item.selectedSizeG, item.selectedFlavors) !== key
           )
         );
         return;
       }
       setItems((prev) =>
         prev.map((item) =>
-          cartItemKey(item.product.id, item.selectedSizeG) === key
+          cartItemKey(item.product.id, item.selectedSizeG, item.selectedFlavors) === key
             ? { ...item, quantity }
             : item
         )
