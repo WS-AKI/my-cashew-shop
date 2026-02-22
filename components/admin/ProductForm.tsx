@@ -397,7 +397,8 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       setError("少なくとも1つのサイズに価格を入力してください"); return;
     }
 
-    if (salePrice !== null && salePrice >= basePrice) {
+    // セット商品のみ：グローバル「セール価格」を定価より安くする検証。単品はサイズ別セールのみなのでここでは見ない
+    if (form.is_set && salePrice !== null && salePrice > 0 && basePrice > 0 && salePrice >= basePrice) {
       setError("セール価格は定価より低い金額にしてください"); return;
     }
 
