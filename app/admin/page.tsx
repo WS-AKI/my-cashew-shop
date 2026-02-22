@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Image from "next/image";
-import { Lock, ShoppingBag, MapPin, Package, Loader2, ImageIcon, MessageCircle, Send, Store, User } from "lucide-react";
+import { Lock, ShoppingBag, MapPin, Package, Loader2, ImageIcon, MessageCircle, Send, Store, User, Trash2 } from "lucide-react";
 
 const FLAVOR_LABELS: Record<string, string> = {
   original: "オリジナル",
@@ -95,6 +95,7 @@ export default function AdminPage() {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     const saved = typeof window !== "undefined" ? localStorage.getItem(PIN_STORAGE_KEY) : null;
@@ -167,6 +168,22 @@ export default function AdminPage() {
     setReplyTexts((prev) => ({ ...prev, [orderId]: "" }));
     await fetchOrders();
     setReplySending(null);
+  }
+
+  async function handleDeleteOrder(orderId: string) {
+    if (!confirm("この注文を削除しますか？ 売上からも除外されます。\nลบคำสั่งซื้อนี้หรือไม่?")) return;
+    setDeletingId(orderId);
+    const supabase = createClient();
+    await supabase.from("order_messages").delete().eq("order_id", orderId);
+    await supabase.from("order_items").delete().eq("order_id", orderId);
+    const { error } = await supabase.from("orders").delete().eq("id", orderId);
+    setDeletingId(null);
+    if (error) {
+      console.error("Delete order error:", error);
+      alert(`削除に失敗しました: ${error.message}`);
+      return;
+    }
+    await fetchOrders();
   }
 
   if (!unlocked) {
@@ -274,18 +291,33 @@ export default function AdminPage() {
                   <span className="text-gray-500 text-sm">
                     {formatDate(order.created_at)}
                   </span>
-                  <select
-                    value={normalizeOrderStatus(order.status)}
-                    onChange={(e) => handleStatusChange(order.id, e.target.value)}
-                    disabled={updatingId === order.id}
-                    className="text-sm font-medium rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  >
-                    {STATUS_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={normalizeOrderStatus(order.status)}
+                      onChange={(e) => handleStatusChange(order.id, e.target.value)}
+                      disabled={updatingId === order.id}
+                      className="text-sm font-medium rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    >
+                      {STATUS_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteOrder(order.id)}
+                      disabled={deletingId === order.id}
+                      className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
+                      title="注文を削除（テスト用）"
+                    >
+                      {deletingId === order.id ? (
+                        <Loader2 size={18} className="animate-spin" />
+                      ) : (
+                        <Trash2 size={18} />
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="p-4 space-y-3">
