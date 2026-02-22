@@ -25,11 +25,11 @@ export default function HeroCarousel() {
       >
         {SLIDES.map((slide) => (
           <SwiperSlide key={slide.id}>
-            <div className="relative w-full aspect-[4/5] sm:aspect-[21/9] max-h-[70vh] sm:max-h-[50vh] bg-gray-200">
+            <div className="relative w-full aspect-[4/5] sm:aspect-[21/9] max-h-[70vh] sm:max-h-[50vh] bg-amber-100/80 flex items-center justify-center">
               <img
                 src={slide.url}
                 alt={slide.alt}
-                className="absolute inset-0 w-full h-full object-cover"
+                className="absolute inset-0 w-full h-full object-contain"
                 sizes="100vw"
                 fetchPriority="high"
               />
