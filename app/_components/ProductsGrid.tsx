@@ -9,9 +9,10 @@ type ProductsGridProps = { showViewAll?: boolean };
 export default async function ProductsGrid({ showViewAll = true }: ProductsGridProps) {
   const supabase = await createClient();
 
+  // お客様向け: タイ人向け価格（thai_price）は含めない（管理者ページ専用）
   const { data, error } = await supabase
     .from("products")
-    .select("*")
+    .select("id, name_ja, name_th, description_ja, description_th, price, sale_price, image_url, gallery_urls, stock, is_active, is_promotion, display_order, flavor_color, weight_g, is_set, set_quantity, price_variants, created_at")
     .eq("is_active", true)
     .order("display_order", { ascending: true })
     .order("created_at", { ascending: false }); // display_order が同じ場合の補助ソート
@@ -47,11 +48,15 @@ export default async function ProductsGrid({ showViewAll = true }: ProductsGridP
 
   return (
     <>
-      {/* 単品：1袋から */}
+      {/* 単品エリア：1袋から選べる */}
       {singleProducts.length > 0 && (
-        <div className="mb-14">
+        <section
+          id="single"
+          aria-label="単品商品"
+          className="rounded-2xl bg-amber-50/90 border-2 border-amber-200 p-6 sm:p-8 mb-10"
+        >
           <div className="flex items-center gap-3 mb-6">
-            <span className="bg-amber-200 text-amber-900 text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full">
+            <span className="bg-amber-400 text-amber-950 text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full">
               単品
             </span>
             <h3 className="text-xl font-extrabold text-amber-950">
@@ -64,15 +69,19 @@ export default async function ProductsGrid({ showViewAll = true }: ProductsGridP
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
-        </div>
+        </section>
       )}
 
-      {/* お得セット：組み合わせでお得 */}
+      {/* 詰め合わせエリア：組み合わせでお得 */}
       {setProducts.length > 0 && (
-        <div className="rounded-2xl bg-orange-50/80 border-2 border-orange-200 p-6 sm:p-8">
+        <section
+          id="set"
+          aria-label="詰め合わせ・お得セット"
+          className="rounded-2xl bg-orange-50/80 border-2 border-orange-200 p-6 sm:p-8"
+        >
           <div className="flex items-center gap-3 mb-6">
             <span className="bg-orange-500 text-white text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full">
-              お得セット
+              詰め合わせ
             </span>
             <h3 className="text-xl font-extrabold text-amber-950">
               組み合わせでお得
@@ -84,7 +93,7 @@ export default async function ProductsGrid({ showViewAll = true }: ProductsGridP
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
-        </div>
+        </section>
       )}
 
       {showViewAll && (

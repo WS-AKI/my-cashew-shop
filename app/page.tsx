@@ -107,10 +107,24 @@ export default function HomePage() {
             <h2 className="text-3xl font-extrabold text-amber-950 mt-2 mb-3">
               人気商品ラインナップ
             </h2>
-            <p className="text-amber-700/60 max-w-md mx-auto text-sm leading-relaxed">
+            <p className="text-amber-700/60 max-w-md mx-auto text-sm leading-relaxed mb-6">
               全商品、タイ・ウタラディット県産を使用。
               素材本来の旨みを引き出すために、丁寧に焙煎しています。
             </p>
+            <nav className="flex flex-wrap justify-center gap-2" aria-label="商品セクションへジャンプ">
+              <a
+                href="#single"
+                className="px-4 py-2 rounded-full bg-amber-200 text-amber-900 text-sm font-bold hover:bg-amber-300 transition-colors"
+              >
+                単品
+              </a>
+              <a
+                href="#set"
+                className="px-4 py-2 rounded-full bg-orange-200 text-orange-900 text-sm font-bold hover:bg-orange-300 transition-colors"
+              >
+                詰め合わせ
+              </a>
+            </nav>
           </div>
 
           {/*

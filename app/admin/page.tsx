@@ -217,6 +217,20 @@ export default function AdminPage() {
       <div className="bg-emerald-600 text-white px-4 py-5 shadow">
         <h1 className="text-lg font-bold">ระบบจัดการร้านค้า</h1>
         <p className="text-emerald-100 text-sm">Shop Admin</p>
+        <nav className="flex flex-wrap gap-3 mt-3" aria-label="管理メニュー">
+          <a
+            href="/admin/products"
+            className="text-white/90 hover:text-white text-sm font-medium"
+          >
+            商品管理
+          </a>
+          <a
+            href="/admin/sales"
+            className="text-white/90 hover:text-white text-sm font-medium"
+          >
+            売上・比較
+          </a>
+        </nav>
       </div>
 
       <main className="max-w-2xl mx-auto px-4 py-6">

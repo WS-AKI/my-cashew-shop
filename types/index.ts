@@ -90,6 +90,7 @@ export type Product = {
   weight_g: number | null;
   is_set: boolean;
   set_quantity: number | null;
+  thai_price?: number | null;
   price_variants: PriceVariant[];
   created_at: string;
 };

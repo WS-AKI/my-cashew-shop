@@ -27,9 +27,23 @@ export default function ProductsPage() {
           <h1 className="text-3xl font-extrabold text-amber-950 mt-2 mb-3">
             商品一覧
           </h1>
-          <p className="text-amber-700/60 max-w-md mx-auto text-sm leading-relaxed">
-            単品は1袋から、お得セットは組み合わせでお得に。タイ・ウタラディット県産を使用しています。
+          <p className="text-amber-700/60 max-w-md mx-auto text-sm leading-relaxed mb-6">
+            単品は1袋から、詰め合わせは組み合わせでお得に。タイ・ウタラディット県産を使用しています。
           </p>
+          <nav className="flex flex-wrap justify-center gap-2" aria-label="商品セクションへジャンプ">
+            <a
+              href="#single"
+              className="px-4 py-2 rounded-full bg-amber-200 text-amber-900 text-sm font-bold hover:bg-amber-300 transition-colors"
+            >
+              単品
+            </a>
+            <a
+              href="#set"
+              className="px-4 py-2 rounded-full bg-orange-200 text-orange-900 text-sm font-bold hover:bg-orange-300 transition-colors"
+            >
+              詰め合わせ
+            </a>
+          </nav>
         </div>
         <Suspense fallback={<ProductsGridSkeleton />}>
           <ProductsGrid showViewAll={false} />
