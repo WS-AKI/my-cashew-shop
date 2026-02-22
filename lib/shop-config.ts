@@ -36,11 +36,20 @@ export const SHOP_TEXT = {
     cartEmptyHint: { ja: "商品をカートに入れてからお進みください。", th: "กรุณาเพิ่มสินค้าในตะกร้าก่อน" },
   },
   orderSuccess: {
-    title: { ja: "ご注文を承りました", th: "รับคำสั่งซื้อแล้ว" },
+    /** Before slip upload */
+    titleReceived: { ja: "注文を受け付けました", th: "รับคำสั่งซื้อแล้ว" },
+    thankYouReceived: {
+      ja: "お支払いのうえ、下の「お支払いスリップのアップロード」からスリップを送信してください。",
+      th: "กรุณาชำระเงินแล้วอัพโหลดสลิปที่ด้านล่าง",
+    },
+    /** After slip upload */
+    titleConfirmed: { ja: "ご注文を承りました", th: "รับคำสั่งซื้อแล้ว" },
     thankYou: {
       ja: "ご注文ありがとうございます。お支払い確認後、発送のご連絡をいたします。",
       th: "ขอบคุณที่สั่งซื้อ เราจะติดต่อหลังยืนยันการชำระเงิน",
     },
+    /** Legacy: same as titleConfirmed */
+    title: { ja: "ご注文を承りました", th: "รับคำสั่งซื้อแล้ว" },
     continueShopping: { ja: "買い物を続ける", th: "ช้อปต่อ" },
     paymentMethod: { ja: "お支払い方法：銀行振込", th: "ชำระผ่านโอนธนาคาร" },
     bankTransfer: { ja: "振込先", th: "โอนเข้าบัญชี" },
@@ -71,3 +80,8 @@ export const BANK_INFO = {
   /** Path to PromptPay QR image in /public. Empty = hide QR section. */
   promptPayQrPath: "",
 } as const;
+
+/** 公式LINEアカウントのURL（お問い合わせ用）。Vercel/環境変数で NEXT_PUBLIC_LINE_OFFICIAL_URL を設定可能。 */
+export const LINE_OFFICIAL_URL =
+  (typeof process !== "undefined" && process.env.NEXT_PUBLIC_LINE_OFFICIAL_URL) ||
+  "https://line.me";

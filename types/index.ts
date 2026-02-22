@@ -69,6 +69,7 @@ export type PriceVariant = {
   size_g: number;
   price: number;
   sale_price?: number;
+  image_url?: string;
 };
 
 export type Product = {
@@ -80,6 +81,7 @@ export type Product = {
   price: number;
   sale_price: number | null;
   image_url: string | null;
+  gallery_urls: string[];
   stock: number;
   is_active: boolean;
   is_promotion: boolean;
@@ -136,6 +138,15 @@ export function getItemOriginalPrice(item: CartItem): number {
   if (variant) return variant.price;
   return item.product.price;
 }
+
+export type ProductReview = {
+  id: string;
+  product_id: string;
+  reviewer_name: string;
+  rating: number;
+  comment: string | null;
+  created_at: string;
+};
 
 export type Order = {
   id: string;

@@ -1,11 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import { ShoppingCart, Package, Star, Plus, Minus } from "lucide-react";
+import { ShoppingCart, Package, Star, Plus, Minus, ChevronLeft, ChevronRight } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { Product, FLAVOR_COLORS, FlavorColor, FlavorSelection, PriceVariant } from "@/types";
 import { SHOP_TEXT } from "@/lib/shop-config";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import ProductReviews from "./ProductReviews";
 
 const T = SHOP_TEXT.cart;
 const ALL_FLAVORS = Object.keys(FLAVOR_COLORS) as FlavorColor[];
@@ -44,6 +45,23 @@ export default function ProductCard({ product }: Props) {
   const currentVariant = hasVariants
     ? variants.find((v) => v.size_g === selectedSize) ?? variants[0]
     : null;
+
+  const displayImageUrl = currentVariant?.image_url || product.image_url;
+
+  const galleryImages = useMemo(() => {
+    const imgs: string[] = [];
+    if (displayImageUrl) imgs.push(displayImageUrl);
+    const gallery = product.gallery_urls;
+    if (Array.isArray(gallery)) {
+      for (const url of gallery) {
+        if (url && !imgs.includes(url)) imgs.push(url);
+      }
+    }
+    return imgs;
+  }, [displayImageUrl, product.gallery_urls]);
+
+  const [galleryIdx, setGalleryIdx] = useState(0);
+  const safeIdx = galleryImages.length > 0 ? galleryIdx % galleryImages.length : 0;
 
   const variantHasSale =
     currentVariant?.sale_price != null &&
@@ -121,14 +139,46 @@ export default function ProductCard({ product }: Props) {
             flavor ? flavor.cardBg : "bg-amber-50"
           }`}
         >
-          {product.image_url ? (
-            <Image
-              src={product.image_url}
-              alt={product.name_ja}
-              fill
-              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-              className="object-cover group-hover:scale-105 transition-transform duration-500"
-            />
+          {galleryImages.length > 0 ? (
+            <>
+              <Image
+                src={galleryImages[safeIdx]}
+                alt={product.name_ja}
+                fill
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                className="object-cover transition-transform duration-500"
+              />
+              {galleryImages.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setGalleryIdx((i) => (i - 1 + galleryImages.length) % galleryImages.length); }}
+                    className="absolute left-1 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/30 hover:bg-black/50 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setGalleryIdx((i) => (i + 1) % galleryImages.length); }}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/30 hover:bg-black/50 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 z-10">
+                    {galleryImages.map((_, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setGalleryIdx(i); }}
+                        className={`w-2 h-2 rounded-full transition-all ${
+                          i === safeIdx ? "bg-white scale-125 shadow" : "bg-white/50"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
+            </>
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center gap-3">
               <Package
@@ -219,7 +269,7 @@ export default function ProductCard({ product }: Props) {
                   <button
                     key={v.size_g}
                     type="button"
-                    onClick={() => setSelectedSize(v.size_g)}
+                    onClick={() => { setSelectedSize(v.size_g); setGalleryIdx(0); }}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold border-2 transition-all ${
                       selectedSize === v.size_g
                         ? "border-amber-500 bg-amber-50 text-amber-700"
@@ -349,6 +399,8 @@ export default function ProductCard({ product }: Props) {
             </div>
           </div>
         </div>
+
+        <ProductReviews productId={product.id} productName={product.name_ja} />
       </div>
     </>
   );

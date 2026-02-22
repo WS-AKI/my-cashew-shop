@@ -163,14 +163,23 @@ function TrackContent() {
     const supabase = createClient();
     try {
       const compressed = await imageCompression(slipFile, {
-        maxWidthOrHeight: 1024, maxSizeMB: 0.3, useWebWorker: true,
+        maxWidthOrHeight: 1024,
+        maxSizeMB: 0.3,
+        useWebWorker: true,
+        fileType: "image/jpeg",
       });
-      const ext = compressed.name.split(".").pop() ?? "jpg";
-      const path = `slips/${order.id}-${Date.now()}.${ext}`;
-      const { error: uploadErr } = await supabase.storage.from("slips").upload(path, compressed);
-      if (uploadErr) throw uploadErr;
+      const path = `slips/${order.id}-${Date.now()}.jpg`;
+      const { error: uploadErr } = await supabase.storage.from("slips").upload(path, compressed, {
+        contentType: "image/jpeg",
+        upsert: true,
+      });
+      if (uploadErr) throw new Error(`アップロード: ${uploadErr.message}`);
       const { data: urlData } = supabase.storage.from("slips").getPublicUrl(path);
-      await supabase.from("orders").update({ slip_image_url: urlData.publicUrl }).eq("id", order.id);
+      const { error: updateErr } = await supabase
+        .from("orders")
+        .update({ slip_image_url: urlData.publicUrl })
+        .eq("id", order.id);
+      if (updateErr) throw new Error(`注文の更新: ${updateErr.message}`);
       setSlipUploaded(true);
       setOrder({ ...order, slip_image_url: urlData.publicUrl });
       fetch("/api/notify-slip", {
@@ -179,7 +188,7 @@ function TrackContent() {
         body: JSON.stringify({ order_id: order.id }),
       }).catch(() => {});
     } catch (err) {
-      setSlipError(err instanceof Error ? err.message : "Upload failed");
+      setSlipError(err instanceof Error ? err.message : "アップロードに失敗しました");
     } finally {
       setSlipUploading(false);
     }

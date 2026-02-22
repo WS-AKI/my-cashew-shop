@@ -65,12 +65,6 @@ const AREA_OPTIONS = [
 ] as const;
 
 const DISTRICT_OPTIONS = ["Watthana", "Khlong Tan"] as const;
-const POSTAL_CODE_OPTIONS = ["10110", "10120"] as const;
-const ROOM_OPTIONS = [
-  "101", "102", "201", "202", "301", "302", "401", "402",
-  "501", "502", "601", "602", "701", "702", "801", "802",
-  "901", "902", "1001", "1002", "1101", "1102", "1201", "1202",
-] as const;
 
 function getAreaLabel(areaValue: string): string {
   const found = AREA_OPTIONS.find((o) => o.value === areaValue);
@@ -562,18 +556,14 @@ export default function CheckoutPage() {
                   autoComplete="address-line1"
                 />
 
-                <select
+                <input
+                  type="text"
                   value={form.roomNumber}
                   onChange={(e) => setForm({ ...form, roomNumber: e.target.value })}
+                  placeholder="部屋番号（ご自由に記入）"
                   className={inputClass}
-                >
-                  <option value="">部屋番号を選択</option>
-                  {ROOM_OPTIONS.map((room) => (
-                    <option key={room} value={room}>
-                      {room}
-                    </option>
-                  ))}
-                </select>
+                  autoComplete="off"
+                />
 
                 <div className="grid grid-cols-2 gap-2">
                   <select
@@ -589,18 +579,15 @@ export default function CheckoutPage() {
                     ))}
                   </select>
 
-                  <select
+                  <input
+                    type="text"
                     value={form.postalCode}
                     onChange={(e) => setForm({ ...form, postalCode: e.target.value })}
+                    placeholder="郵便番号（ご自由に記入）"
                     className={inputClass}
-                  >
-                    <option value="">郵便番号</option>
-                    {POSTAL_CODE_OPTIONS.map((code) => (
-                      <option key={code} value={code}>
-                        {code}
-                      </option>
-                    ))}
-                  </select>
+                    autoComplete="postal-code"
+                    inputMode="numeric"
+                  />
                 </div>
               </div>
             </Field>

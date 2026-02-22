@@ -67,17 +67,24 @@ export default function OrderSuccessContent() {
         maxWidthOrHeight: 1024,
         maxSizeMB: 0.3,
         useWebWorker: true,
+        fileType: "image/jpeg",
       });
-      const ext = compressed.name.split(".").pop() ?? "jpg";
-      const path = `slips/${orderId}-${Date.now()}.${ext}`;
-      const { error: uploadErr } = await supabase.storage.from("slips").upload(path, compressed);
-      if (uploadErr) throw uploadErr;
+      const path = `slips/${orderId}-${Date.now()}.jpg`;
+      const { error: uploadErr } = await supabase.storage.from("slips").upload(path, compressed, {
+        contentType: "image/jpeg",
+        upsert: true,
+      });
+      if (uploadErr) {
+        throw new Error(`アップロード: ${uploadErr.message}`);
+      }
       const { data: urlData } = supabase.storage.from("slips").getPublicUrl(path);
       const { error: updateErr } = await supabase
         .from("orders")
         .update({ slip_image_url: urlData.publicUrl })
         .eq("id", orderId);
-      if (updateErr) throw updateErr;
+      if (updateErr) {
+        throw new Error(`注文の更新: ${updateErr.message}. Supabase で orders の「Enable update for anon」ポリシーを追加してください。`);
+      }
       setSlipUploaded(true);
       setSlipPreview(urlData.publicUrl);
       fetch("/api/notify-slip", {
@@ -86,7 +93,7 @@ export default function OrderSuccessContent() {
         body: JSON.stringify({ order_id: orderId }),
       }).catch(() => {});
     } catch (err) {
-      setSlipError(err instanceof Error ? err.message : "Upload failed");
+      setSlipError(err instanceof Error ? err.message : "アップロードに失敗しました");
     } finally {
       setSlipUploading(false);
     }
@@ -102,16 +109,22 @@ export default function OrderSuccessContent() {
     <div className="min-h-screen bg-amber-50 flex flex-col">
       <Header />
       <main className="flex-1 max-w-lg mx-auto w-full px-4 py-8 space-y-6">
-        {/* Success header */}
+        {/* Success header: スリップアップロード後に「ご注文を承りました」 */}
         <div className="text-center">
           <div className="flex justify-center mb-4">
-            <CheckCircle size={64} className="text-green-500" />
+            <CheckCircle size={64} className={slipUploaded ? "text-green-500" : "text-amber-500"} />
           </div>
           <h1 className="text-2xl font-extrabold text-amber-950 mb-2">
-            <DualLanguageLabel primary={T.title.ja} secondary={T.title.th} />
+            <DualLanguageLabel
+              primary={slipUploaded ? T.titleConfirmed.ja : T.titleReceived.ja}
+              secondary={slipUploaded ? T.titleConfirmed.th : T.titleReceived.th}
+            />
           </h1>
           <p className="text-gray-600 text-sm">
-            <DualLanguageLabel primary={T.thankYou.ja} secondary={T.thankYou.th} />
+            <DualLanguageLabel
+              primary={slipUploaded ? T.thankYou.ja : T.thankYouReceived.ja}
+              secondary={slipUploaded ? T.thankYou.th : T.thankYouReceived.th}
+            />
           </p>
         </div>
 

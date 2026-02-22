@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LINE_OFFICIAL_URL } from "@/lib/shop-config";
 
 export default function Footer() {
   return (
@@ -83,12 +84,12 @@ export default function Footer() {
               </li>
               <li>
                 <a
-                  href="https://instagram.com"
+                  href={LINE_OFFICIAL_URL}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-amber-300/70 hover:text-amber-300 transition-colors"
                 >
-                  Instagram
+                  公式LINE
                 </a>
               </li>
             </ul>

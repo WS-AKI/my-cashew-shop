@@ -19,6 +19,7 @@ import {
   SortAsc,
   FileText,
   Hash,
+  Plus,
 } from "lucide-react";
 
 type ProductFormProps = {
@@ -30,6 +31,7 @@ type ProductFormProps = {
 const SIZE_OPTIONS = [100, 200, 250, 500] as const;
 
 type SizePrices = Record<number, string>;
+type SizeImageUrls = Record<number, string>;
 
 type FormData = {
   name_ja: string;
@@ -48,6 +50,7 @@ type FormData = {
   set_quantity: string;
   sizePrices: SizePrices;
   sizeSalePrices: SizePrices;
+  sizeImages: SizeImageUrls;
 };
 
 function buildInitialSizePrices(variants?: PriceVariant[]): SizePrices {
@@ -72,6 +75,17 @@ function buildInitialSizeSalePrices(variants?: PriceVariant[]): SizePrices {
   return prices;
 }
 
+function buildInitialSizeImages(variants?: PriceVariant[]): SizeImageUrls {
+  const imgs: SizeImageUrls = {};
+  for (const s of SIZE_OPTIONS) imgs[s] = "";
+  if (variants && Array.isArray(variants)) {
+    for (const v of variants) {
+      if (v.size_g in imgs && v.image_url) imgs[v.size_g] = v.image_url;
+    }
+  }
+  return imgs;
+}
+
 function buildInitialForm(product?: Product): FormData {
   if (!product) {
     return {
@@ -82,6 +96,7 @@ function buildInitialForm(product?: Product): FormData {
       flavor_color: "", weight_g: "", is_set: false, set_quantity: "",
       sizePrices: buildInitialSizePrices(),
       sizeSalePrices: buildInitialSizeSalePrices(),
+      sizeImages: buildInitialSizeImages(),
     };
   }
   return {
@@ -101,10 +116,15 @@ function buildInitialForm(product?: Product): FormData {
     set_quantity: product.set_quantity ? String(product.set_quantity) : "",
     sizePrices: buildInitialSizePrices(product.price_variants),
     sizeSalePrices: buildInitialSizeSalePrices(product.price_variants),
+    sizeImages: buildInitialSizeImages(product.price_variants),
   };
 }
 
-function buildPriceVariants(sizePrices: SizePrices, sizeSalePrices: SizePrices): PriceVariant[] {
+function buildPriceVariants(
+  sizePrices: SizePrices,
+  sizeSalePrices: SizePrices,
+  sizeImages: SizeImageUrls,
+): PriceVariant[] {
   const variants: PriceVariant[] = [];
   for (const s of SIZE_OPTIONS) {
     const val = Number(sizePrices[s]);
@@ -112,6 +132,7 @@ function buildPriceVariants(sizePrices: SizePrices, sizeSalePrices: SizePrices):
       const saleVal = Number(sizeSalePrices[s]);
       const variant: PriceVariant = { size_g: s, price: Math.floor(val) };
       if (saleVal > 0 && saleVal < val) variant.sale_price = Math.floor(saleVal);
+      if (sizeImages[s]) variant.image_url = sizeImages[s];
       variants.push(variant);
     }
   }
@@ -186,6 +207,18 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
+  const [galleryPreviews, setGalleryPreviews] = useState<string[]>(
+    (product?.gallery_urls ?? []).filter(Boolean)
+  );
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+
+  const [sizeImageFiles, setSizeImageFiles] = useState<Record<number, File | null>>({});
+  const [sizeImagePreviews, setSizeImagePreviews] = useState<SizeImageUrls>(
+    buildInitialSizeImages(product?.price_variants)
+  );
+  const sizeFileRefs = useRef<Record<number, HTMLInputElement | null>>({});
+
   function handleImageChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -228,6 +261,105 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     }
   }
 
+  function handleGalleryAdd(e: ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files) return;
+    const newFiles: File[] = [];
+    const newPreviews: string[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      if (!f.type.startsWith("image/")) continue;
+      if (f.size > 10 * 1024 * 1024) continue;
+      newFiles.push(f);
+      newPreviews.push(URL.createObjectURL(f));
+    }
+    setGalleryFiles((prev) => [...prev, ...newFiles]);
+    setGalleryPreviews((prev) => [...prev, ...newPreviews]);
+    e.target.value = "";
+  }
+
+  function removeGalleryImage(index: number) {
+    setGalleryPreviews((prev) => prev.filter((_, i) => i !== index));
+    const existingCount = (product?.gallery_urls ?? []).filter(Boolean).length;
+    if (index >= existingCount) {
+      const fileIdx = index - existingCount;
+      setGalleryFiles((prev) => prev.filter((_, i) => i !== fileIdx));
+    }
+  }
+
+  async function uploadGalleryImages(): Promise<{ urls: string[]; ok: boolean }> {
+    const BUCKET = "product-images";
+    const existingUrls = galleryPreviews.filter(
+      (url) => !url.startsWith("blob:")
+    );
+    const uploadedUrls: string[] = [...existingUrls];
+
+    for (const file of galleryFiles) {
+      const fileName = `gallery/${Date.now()}-${Math.random().toString(36).slice(2)}-${file.name}`;
+      try {
+        const { data, error: uploadError } = await supabase.storage
+          .from(BUCKET)
+          .upload(fileName, file);
+        if (uploadError) {
+          setError(`ギャラリー画像アップロードエラー: ${uploadError.message}`);
+          return { urls: uploadedUrls, ok: false };
+        }
+        const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(data.path);
+        uploadedUrls.push(urlData.publicUrl);
+      } catch (err) {
+        setError(`ギャラリー画像: ${String(err)}`);
+        return { urls: uploadedUrls, ok: false };
+      }
+    }
+    return { urls: uploadedUrls, ok: true };
+  }
+
+  function handleSizeImageChange(size: number, e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { setError("画像ファイルを選択してください"); return; }
+    if (file.size > 10 * 1024 * 1024) { setError("ファイルサイズは10MB以下にしてください"); return; }
+    setSizeImageFiles((prev) => ({ ...prev, [size]: file }));
+    setSizeImagePreviews((prev) => ({ ...prev, [size]: URL.createObjectURL(file) }));
+    setError(null);
+  }
+
+  function removeSizeImage(size: number) {
+    setSizeImageFiles((prev) => ({ ...prev, [size]: null }));
+    setSizeImagePreviews((prev) => ({ ...prev, [size]: "" }));
+    setForm((prev) => ({
+      ...prev,
+      sizeImages: { ...prev.sizeImages, [size]: "" },
+    }));
+  }
+
+  async function uploadSizeImages(): Promise<{ urls: SizeImageUrls; ok: boolean }> {
+    const BUCKET = "product-images";
+    const urls: SizeImageUrls = { ...form.sizeImages };
+
+    for (const s of SIZE_OPTIONS) {
+      const file = sizeImageFiles[s];
+      if (!file) continue;
+
+      const fileName = `${Date.now()}-size${s}-${file.name}`;
+      try {
+        const { data, error: uploadError } = await supabase.storage
+          .from(BUCKET)
+          .upload(fileName, file);
+        if (uploadError) {
+          setError(`${s}g 画像アップロードエラー: ${uploadError.message}`);
+          return { urls, ok: false };
+        }
+        const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(data.path);
+        urls[s] = urlData.publicUrl;
+      } catch (err) {
+        setError(`${s}g 画像: ${String(err)}`);
+        return { urls, ok: false };
+      }
+    }
+    return { urls, ok: true };
+  }
+
   function updateSizePrice(size: number, value: string) {
     setForm((prev) => ({
       ...prev,
@@ -246,7 +378,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     e.preventDefault();
     setError(null);
 
-    const priceVariants = form.is_set ? [] : buildPriceVariants(form.sizePrices, form.sizeSalePrices);
+    const priceVariants = form.is_set ? [] : buildPriceVariants(form.sizePrices, form.sizeSalePrices, form.sizeImages);
     const hasVariantPrices = priceVariants.length > 0;
 
     const basePrice = hasVariantPrices
@@ -271,6 +403,16 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     const { url: imageUrl, ok: uploadOk } = await uploadImage();
     if (!uploadOk) { setSaving(false); return; }
 
+    const { urls: uploadedSizeImages, ok: sizeUploadOk } = await uploadSizeImages();
+    if (!sizeUploadOk) { setSaving(false); return; }
+
+    const { urls: galleryUrls, ok: galleryUploadOk } = await uploadGalleryImages();
+    if (!galleryUploadOk) { setSaving(false); return; }
+
+    const finalVariants = form.is_set
+      ? []
+      : buildPriceVariants(form.sizePrices, form.sizeSalePrices, uploadedSizeImages);
+
     const payload: Record<string, unknown> = {
       name_ja: form.name_ja.trim() || "",
       name_th: form.name_th.trim() || "",
@@ -287,7 +429,8 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       weight_g: form.weight_g ? Math.floor(Number(form.weight_g)) : 0,
       is_set: form.is_set,
       set_quantity: form.is_set && form.set_quantity ? Math.floor(Number(form.set_quantity)) : null,
-      price_variants: priceVariants,
+      price_variants: finalVariants,
+      gallery_urls: galleryUrls,
     };
 
     let dbError;
@@ -356,6 +499,42 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
             accept="image/*"
             capture="environment"
             onChange={handleImageChange}
+            className="hidden"
+          />
+        </div>
+
+        {/* Gallery */}
+        <div>
+          <Label icon={Camera} color="text-indigo-500">ギャラリー写真（複数枚OK）</Label>
+          <p className="text-xs text-gray-500 mb-2">商品の魅力を伝える写真を追加できます。お客様に表示されます。</p>
+          <div className="flex flex-wrap gap-2">
+            {galleryPreviews.map((url, i) => (
+              <div key={i} className="relative w-20 h-20 rounded-lg overflow-hidden bg-gray-100 group">
+                <Image src={url} alt={`Gallery ${i + 1}`} fill className="object-cover" />
+                <button
+                  type="button"
+                  onClick={() => removeGalleryImage(i)}
+                  className="absolute top-0.5 right-0.5 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <X size={10} />
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => galleryInputRef.current?.click()}
+              className="w-20 h-20 rounded-lg border-2 border-dashed border-indigo-300 bg-indigo-50 flex flex-col items-center justify-center gap-0.5 hover:border-indigo-400 hover:bg-indigo-100 transition-colors"
+            >
+              <Plus size={20} className="text-indigo-400" />
+              <span className="text-[9px] text-indigo-400 font-medium">追加</span>
+            </button>
+          </div>
+          <input
+            ref={galleryInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleGalleryAdd}
             className="hidden"
           />
         </div>
@@ -488,6 +667,52 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
               {SIZE_OPTIONS.map((size) => (
                 <div key={size} className="bg-gray-50 rounded-lg p-3">
                   <p className="text-xs font-bold text-gray-600 mb-2">{size}g</p>
+
+                  {/* Per-size image */}
+                  <div className="mb-2">
+                    {sizeImagePreviews[size] ? (
+                      <div className="relative w-20 h-20 rounded-lg overflow-hidden bg-gray-100 group">
+                        <Image
+                          src={sizeImagePreviews[size]}
+                          alt={`${size}g`}
+                          fill
+                          className="object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeSizeImage(size)}
+                          className="absolute top-0.5 right-0.5 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X size={10} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => sizeFileRefs.current[size]?.click()}
+                          className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                        >
+                          <Camera size={16} className="text-white" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => sizeFileRefs.current[size]?.click()}
+                        className="w-20 h-20 rounded-lg border-2 border-dashed border-gray-300 bg-white flex flex-col items-center justify-center gap-0.5 hover:border-amber-400 hover:bg-amber-50 transition-colors"
+                      >
+                        <Camera size={16} className="text-gray-400" />
+                        <span className="text-[9px] text-gray-400 font-medium">写真</span>
+                      </button>
+                    )}
+                    <input
+                      ref={(el) => { sizeFileRefs.current[size] = el; }}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={(e) => handleSizeImageChange(size, e)}
+                      className="hidden"
+                    />
+                  </div>
+
                   <div className="grid grid-cols-2 gap-2">
                     <Input
                       type="number"

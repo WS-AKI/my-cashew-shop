@@ -344,7 +344,7 @@ export default function CheckoutSuccessPage() {
               "振込手数料はお客様のご負担となります",
               "ご注文後7日以内にお振込をお願いします",
               "振込完了後、1〜2営業日以内に発送いたします",
-              "ご不明な点はInstagramのDMよりお気軽にどうぞ",
+              "ご不明な点は公式LINEよりお気軽にどうぞ",
             ].map((note, i) => (
               <li key={i} className="flex items-start gap-2">
                 <ChevronRight size={14} className="flex-shrink-0 mt-0.5 text-amber-500" />
