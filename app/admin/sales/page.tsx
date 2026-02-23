@@ -51,6 +51,26 @@ type OrderRow = {
   order_items?: OrderItemRow[];
 };
 
+/** API 戻り値: Supabase は products を配列で返すことがある */
+type RawOrderRow = Omit<OrderRow, "order_items"> & {
+  order_items?: (Omit<OrderItemRow, "products"> & {
+    products?: ProductRow | ProductRow[] | null;
+  })[];
+};
+
+/** Supabase はリレーションを products: ProductRow[] で返すことがあるため、単一オブジェクトに正規化 */
+function normalizeOrders(raw: RawOrderRow[]): OrderRow[] {
+  return raw.map((order) => ({
+    ...order,
+    order_items: (order.order_items ?? []).map((item) => ({
+      ...item,
+      products: Array.isArray(item.products)
+        ? (item.products[0] as ProductRow) ?? null
+        : item.products ?? null,
+    })),
+  })) as OrderRow[];
+}
+
 type Period = "all" | "this_month" | "last_month";
 
 function getPeriodBounds(period: Period): { start: Date; end: Date } | null {
@@ -201,7 +221,7 @@ export default function AdminSalesPage() {
       .order("created_at", { ascending: false });
 
     if (error) setOrders([]);
-    else setOrders((data as OrderRow[]) ?? []);
+    else setOrders(normalizeOrders((data ?? []) as unknown as RawOrderRow[]));
     setLoading(false);
   }, []);
 
@@ -490,7 +510,7 @@ export default function AdminSalesPage() {
                       />
                       <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `฿${(v / 1000).toFixed(0)}k`} />
                       <Tooltip
-                        formatter={(value: number) => [`฿${value.toLocaleString()}`, "売上"]}
+                        formatter={(value: number | undefined) => [`฿${(value ?? 0).toLocaleString()}`, "売上"]}
                         labelFormatter={(_, payload) =>
                           payload?.[0]?.payload?.fullName ?? ""
                         }
@@ -518,7 +538,7 @@ export default function AdminSalesPage() {
                         cy="50%"
                         outerRadius={100}
                         label={({ name, percent }) =>
-                          `${name} ${(percent * 100).toFixed(0)}%`
+                          `${name} ${((percent ?? 0) * 100).toFixed(0)}%`
                         }
                       >
                         {chartData.map((_, i) => (
@@ -529,7 +549,7 @@ export default function AdminSalesPage() {
                         ))}
                       </Pie>
                       <Tooltip
-                        formatter={(value: number) => `฿${value.toLocaleString()}`}
+                        formatter={(value: number | undefined) => `฿${(value ?? 0).toLocaleString()}`}
                       />
                       <Legend />
                     </PieChart>

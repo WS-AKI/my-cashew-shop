@@ -84,6 +84,25 @@ type OrderRow = {
   order_messages?: MsgRow[];
 };
 
+/** API 戻り値: Supabase は products を配列で返すことがある */
+type RawOrderRow = Omit<OrderRow, "order_items"> & {
+  order_items?: (Omit<OrderItemRow, "products"> & {
+    products?: ProductRow | ProductRow[] | null;
+  })[];
+};
+
+function normalizeOrders(raw: RawOrderRow[]): OrderRow[] {
+  return raw.map((order) => ({
+    ...order,
+    order_items: (order.order_items ?? []).map((item) => ({
+      ...item,
+      products: Array.isArray(item.products)
+        ? (item.products[0] as ProductRow) ?? null
+        : item.products ?? null,
+    })),
+  })) as OrderRow[];
+}
+
 function formatDate(iso: string): string {
   const d = new Date(iso);
   const day = String(d.getDate()).padStart(2, "0");
@@ -135,7 +154,7 @@ export default function AdminPage() {
     if (error) {
       setOrders([]);
     } else {
-      setOrders((data as OrderRow[]) ?? []);
+      setOrders(normalizeOrders((data ?? []) as unknown as RawOrderRow[]));
     }
     setLoading(false);
   }, []);
