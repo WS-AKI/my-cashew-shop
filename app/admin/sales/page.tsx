@@ -220,8 +220,12 @@ export default function AdminSalesPage() {
       )
       .order("created_at", { ascending: false });
 
-    if (error) setOrders([]);
-    else setOrders(normalizeOrders((data ?? []) as unknown as RawOrderRow[]));
+    if (error) {
+      setOrders([]);
+    } else {
+      const raw: unknown = data ?? [];
+      setOrders(normalizeOrders(raw as RawOrderRow[]));
+    }
     setLoading(false);
   }, []);
 
