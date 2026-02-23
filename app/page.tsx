@@ -7,6 +7,9 @@ import HeroCarousel from "@/components/home/HeroCarousel";
 import ProductsGrid from "@/app/_components/ProductsGrid";
 import ProductsGridSkeleton from "@/app/_components/ProductsGridSkeleton";
 
+/** 商品は Supabase から取得するため、ビルド時ではなくリクエスト時にレンダリングする */
+export const dynamic = "force-dynamic";
+
 const FEATURES = [
   {
     icon: Leaf,
