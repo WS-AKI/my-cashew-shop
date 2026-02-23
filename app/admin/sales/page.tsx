@@ -23,7 +23,10 @@ import {
   DollarSign,
   Loader2,
   Lock,
-  Calendar,
+  RefreshCw,
+  BarChart3,
+  PieChart as PieChartIcon,
+  Table2,
 } from "lucide-react";
 
 const ADMIN_PIN = "607051";
@@ -307,185 +310,221 @@ export default function AdminSalesPage() {
     );
   }
 
+  const periodLabel =
+    period === "all" ? "全期間" : period === "this_month" ? "今月" : "先月";
+
   return (
-    <div className="min-h-screen bg-emerald-50 pb-8">
-      <div className="bg-emerald-600 text-white px-4 py-5 shadow flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-bold">売上・比較</h1>
-          <p className="text-emerald-100 text-sm">Sales & Thai price comparison</p>
-        </div>
-        <Link
-          href="/admin"
-          className="flex items-center gap-1 text-white/90 hover:text-white text-sm font-medium"
-        >
-          <ChevronLeft size={18} />
-          注文一覧へ
-        </Link>
-      </div>
-
-      <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
-        {/* 期間 */}
-        <div className="flex flex-wrap items-center gap-2">
-          <Calendar size={18} className="text-emerald-600" />
-          <span className="text-sm font-medium text-gray-700">期間:</span>
-          {(
-            [
-              { value: "all" as Period, label: "全期間" },
-              { value: "this_month" as Period, label: "今月" },
-              { value: "last_month" as Period, label: "先月" },
-            ] as const
-          ).map(({ value, label }) => (
-            <button
-              key={value}
-              onClick={() => setPeriod(value)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                period === value
-                  ? "bg-emerald-500 text-white"
-                  : "bg-white border border-emerald-200 text-gray-700 hover:bg-emerald-50"
-              }`}
+    <div className="min-h-screen bg-slate-50 pb-12">
+      {/* ヘッダー */}
+      <header className="sticky top-0 z-10 bg-white border-b border-slate-200 shadow-sm">
+        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/admin"
+              className="p-2 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-800 transition-colors"
+              aria-label="注文一覧へ"
             >
-              {label}
-            </button>
-          ))}
+              <ChevronLeft size={22} />
+            </Link>
+            <div>
+              <h1 className="text-xl font-bold text-slate-800">売上記録表</h1>
+              <p className="text-slate-500 text-sm">Sales report · 商品別・期間別</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => fetchOrders()}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white text-sm font-medium transition-colors"
+          >
+            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+            {loading ? "読込中…" : "更新"}
+          </button>
         </div>
 
+        {/* 期間タブ */}
+        <div className="max-w-5xl mx-auto px-4 pb-3">
+          <div className="flex gap-1 p-1 bg-slate-100 rounded-xl w-fit">
+            {(
+              [
+                { value: "all" as Period, label: "全期間" },
+                { value: "this_month" as Period, label: "今月" },
+                { value: "last_month" as Period, label: "先月" },
+              ] as const
+            ).map(({ value, label }) => (
+              <button
+                key={value}
+                onClick={() => setPeriod(value)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  period === value
+                    ? "bg-white text-emerald-700 shadow-sm"
+                    : "text-slate-600 hover:text-slate-800"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-5xl mx-auto px-4 py-6 space-y-8">
         {loading && (
-          <div className="flex flex-col items-center justify-center py-16 text-gray-500">
-            <Loader2 size={40} className="animate-spin text-emerald-500 mb-3" />
-            <p>กำลังโหลด...</p>
+          <div className="flex flex-col items-center justify-center py-24 text-slate-500">
+            <Loader2 size={48} className="animate-spin text-emerald-500 mb-4" />
+            <p className="text-sm">読み込み中…</p>
           </div>
         )}
 
         {!loading && (
           <>
-            {/* サマリカード */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="bg-white rounded-xl border border-emerald-100 p-4 shadow-sm">
-                <div className="flex items-center gap-2 text-emerald-600 mb-1">
-                  <DollarSign size={18} />
-                  <span className="text-sm font-medium">売上合計</span>
+            {/* サマリカード 4枚 */}
+            <section>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
+                  <div className="flex items-center gap-2 text-slate-500 mb-2">
+                    <DollarSign size={18} />
+                    <span className="text-xs font-medium uppercase tracking-wider">売上合計</span>
+                  </div>
+                  <p className="text-2xl font-bold text-slate-800 tabular-nums">
+                    ฿{totalRevenue.toLocaleString()}
+                  </p>
+                  <p className="text-slate-400 text-xs mt-1">{periodLabel}</p>
                 </div>
-                <p className="text-2xl font-bold text-gray-800">
-                  ฿{totalRevenue.toLocaleString()}
-                </p>
-              </div>
-              <div className="bg-white rounded-xl border border-emerald-100 p-4 shadow-sm">
-                <div className="flex items-center gap-2 text-emerald-600 mb-1">
-                  <ShoppingBag size={18} />
-                  <span className="text-sm font-medium">注文数</span>
+                <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
+                  <div className="flex items-center gap-2 text-slate-500 mb-2">
+                    <ShoppingBag size={18} />
+                    <span className="text-xs font-medium uppercase tracking-wider">注文数</span>
+                  </div>
+                  <p className="text-2xl font-bold text-slate-800 tabular-nums">{orderCount}</p>
+                  <p className="text-slate-400 text-xs mt-1">件</p>
                 </div>
-                <p className="text-2xl font-bold text-gray-800">{orderCount}</p>
-              </div>
-              <div className="bg-white rounded-xl border border-emerald-100 p-4 shadow-sm">
-                <div className="flex items-center gap-2 text-emerald-600 mb-1">
-                  <TrendingUp size={18} />
-                  <span className="text-sm font-medium">平均客単価</span>
+                <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
+                  <div className="flex items-center gap-2 text-slate-500 mb-2">
+                    <TrendingUp size={18} />
+                    <span className="text-xs font-medium uppercase tracking-wider">平均客単価</span>
+                  </div>
+                  <p className="text-2xl font-bold text-slate-800 tabular-nums">
+                    ฿{avgOrderValue.toLocaleString()}
+                  </p>
+                  <p className="text-slate-400 text-xs mt-1">/ 1注文</p>
                 </div>
-                <p className="text-2xl font-bold text-gray-800">
-                  ฿{avgOrderValue.toLocaleString()}
-                </p>
+                <div className="bg-amber-50 rounded-2xl border border-amber-200/80 p-5 shadow-sm">
+                  <div className="flex items-center gap-2 text-amber-700 mb-2">
+                    <BarChart3 size={18} />
+                    <span className="text-xs font-medium uppercase tracking-wider">増益</span>
+                  </div>
+                  <p className="text-2xl font-bold text-amber-900 tabular-nums">
+                    +฿{totalGain.toLocaleString()}
+                  </p>
+                  <p className="text-amber-600/80 text-xs mt-1">タイ価格との差額</p>
+                </div>
               </div>
-            </div>
-
-            {/* タイ人向け価格との差額 */}
-            <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-4">
-              <h3 className="font-bold text-amber-900 mb-1">
-                タイ人向け価格で売っていた場合との差（値上げによる増益）
-              </h3>
-              <p className="text-sm text-amber-800/80 mb-2">
-                商品マスタで「タイ人向け価格」を入力した商品のみ集計。同じ販売個数を旧価格で売った場合との差額です。
+              <p className="text-slate-500 text-xs mt-3">
+                増益＝サイト価格での売上 − タイ人向け価格で同数売った場合の売上。商品マスタで「タイ人向け価格」を入力したもののみ集計。
               </p>
-              <p className="text-2xl font-bold text-amber-900">
-                ฿{totalGain.toLocaleString()}
-                {totalGain > 0 && (
-                  <span className="text-base font-normal text-amber-700 ml-2">
-                    （サイト価格の方が高い分の増益）
-                  </span>
-                )}
-              </p>
-            </div>
+            </section>
 
-            {/* 商品別テーブル */}
-            <div className="bg-white rounded-xl border border-emerald-100 shadow-sm overflow-hidden">
-              <h3 className="px-4 py-3 font-bold text-gray-800 border-b border-emerald-100">
-                商品別売上・比較
-              </h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-emerald-50 text-gray-700">
-                      <th className="text-left px-4 py-2 font-semibold">商品名</th>
-                      <th className="text-right px-4 py-2 font-semibold">販売数</th>
-                      <th className="text-right px-4 py-2 font-semibold">実際の売上</th>
-                      <th className="text-right px-4 py-2 font-semibold">割合</th>
-                      <th className="text-right px-4 py-2 font-semibold">タイ人向け価格</th>
-                      <th className="text-right px-4 py-2 font-semibold">旧価格での売上</th>
-                      <th className="text-right px-4 py-2 font-semibold">差額（増益）</th>
+            {/* 商品別売上テーブル */}
+            <section className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+                <Table2 size={20} className="text-emerald-600" />
+                <h2 className="font-bold text-slate-800">商品別売上・比較</h2>
+              </div>
+              <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
+                <table className="w-full text-sm min-w-[640px]">
+                  <thead className="sticky top-0 z-[1] bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      <th className="text-left px-4 py-3 font-semibold text-slate-700 w-[20%]">商品名</th>
+                      <th className="text-right px-4 py-3 font-semibold text-slate-700 w-[10%]">販売数</th>
+                      <th className="text-right px-4 py-3 font-semibold text-slate-700 w-[14%]">実際の売上</th>
+                      <th className="text-right px-4 py-3 font-semibold text-slate-700 w-[12%]">割合</th>
+                      <th className="text-right px-4 py-3 font-semibold text-slate-700 w-[14%]">タイ価格</th>
+                      <th className="text-right px-4 py-3 font-semibold text-slate-700 w-[14%]">旧価格売上</th>
+                      <th className="text-right px-4 py-3 font-semibold text-slate-700 w-[16%]">差額（増益）</th>
                     </tr>
                   </thead>
                   <tbody>
                     {rows.length === 0 && (
                       <tr>
-                        <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                          この期間の注文はありません
+                        <td colSpan={7} className="px-4 py-16 text-center text-slate-500">
+                          <ShoppingBag size={40} className="mx-auto mb-2 text-slate-300" />
+                          <p>この期間の注文はありません</p>
                         </td>
                       </tr>
                     )}
-                    {rows.map((r) => (
-                      <tr
-                        key={r.product_id}
-                        className="border-t border-gray-100 hover:bg-gray-50"
-                      >
-                        <td className="px-4 py-2 font-medium text-gray-800">
-                          {r.name}
-                        </td>
-                        <td className="px-4 py-2 text-right">{r.quantity}</td>
-                        <td className="px-4 py-2 text-right">
-                          ฿{r.revenue.toLocaleString()}
-                        </td>
-                        <td className="px-4 py-2 text-right">
-                          {totalRevenue > 0
-                            ? `${((r.revenue / totalRevenue) * 100).toFixed(1)}%`
-                            : "—"}
-                        </td>
-                        <td className="px-4 py-2 text-right">
-                          {r.thai_price != null
-                            ? `฿${r.thai_price.toLocaleString()}`
-                            : "—"}
-                        </td>
-                        <td className="px-4 py-2 text-right">
-                          {r.revenue_if_thai > 0
-                            ? `฿${r.revenue_if_thai.toLocaleString()}`
-                            : "—"}
-                        </td>
-                        <td className="px-4 py-2 text-right">
-                          {r.gain !== 0 ? (
-                            <span
-                              className={
-                                r.gain > 0
-                                  ? "text-emerald-600 font-medium"
-                                  : "text-gray-500"
-                              }
-                            >
-                              {r.gain > 0 ? "+" : ""}฿{r.gain.toLocaleString()}
-                            </span>
-                          ) : (
-                            "—"
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                    {rows.map((r, idx) => {
+                      const pct = totalRevenue > 0 ? (r.revenue / totalRevenue) * 100 : 0;
+                      return (
+                        <tr
+                          key={r.product_id}
+                          className={`border-b border-slate-100 hover:bg-slate-50/80 ${
+                            idx % 2 === 0 ? "bg-white" : "bg-slate-50/30"
+                          }`}
+                        >
+                          <td className="px-4 py-3 font-medium text-slate-800 align-middle">
+                            {r.name}
+                          </td>
+                          <td className="px-4 py-3 text-right tabular-nums text-slate-700">
+                            {r.quantity}
+                          </td>
+                          <td className="px-4 py-3 text-right tabular-nums font-medium text-slate-800">
+                            ฿{r.revenue.toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3 text-right align-middle">
+                            {totalRevenue > 0 ? (
+                              <div className="flex items-center justify-end gap-2">
+                                <div className="w-16 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full bg-emerald-400 rounded-full min-w-[2px]"
+                                    style={{ width: `${Math.min(100, pct)}%` }}
+                                  />
+                                </div>
+                                <span className="tabular-nums text-slate-600 w-10">
+                                  {pct.toFixed(1)}%
+                                </span>
+                              </div>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right tabular-nums text-slate-600">
+                            {r.thai_price != null
+                              ? `฿${r.thai_price.toLocaleString()}`
+                              : "—"}
+                          </td>
+                          <td className="px-4 py-3 text-right tabular-nums text-slate-600">
+                            {r.revenue_if_thai > 0
+                              ? `฿${r.revenue_if_thai.toLocaleString()}`
+                              : "—"}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {r.gain !== 0 ? (
+                              <span
+                                className={`tabular-nums font-medium ${
+                                  r.gain > 0 ? "text-emerald-600" : "text-slate-500"
+                                }`}
+                              >
+                                {r.gain > 0 ? "+" : ""}฿{r.gain.toLocaleString()}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                     {rows.length > 0 && (
-                      <tr className="border-t-2 border-emerald-200 bg-emerald-50/50 font-bold">
-                        <td className="px-4 py-2 text-gray-800">合計</td>
-                        <td className="px-4 py-2 text-right">—</td>
-                        <td className="px-4 py-2 text-right">
+                      <tr className="bg-slate-100/80 font-bold border-t-2 border-slate-200 sticky bottom-0">
+                        <td className="px-4 py-3 text-slate-800">合計</td>
+                        <td className="px-4 py-3 text-right tabular-nums text-slate-700">—</td>
+                        <td className="px-4 py-3 text-right tabular-nums text-slate-800">
                           ฿{totalRevenue.toLocaleString()}
                         </td>
-                        <td className="px-4 py-2 text-right">100%</td>
-                        <td className="px-4 py-2 text-right">—</td>
-                        <td className="px-4 py-2 text-right">—</td>
-                        <td className="px-4 py-2 text-right text-emerald-600">
+                        <td className="px-4 py-3 text-right tabular-nums text-slate-700">100%</td>
+                        <td className="px-4 py-3 text-right">—</td>
+                        <td className="px-4 py-3 text-right">—</td>
+                        <td className="px-4 py-3 text-right tabular-nums text-emerald-600">
                           +฿{totalGain.toLocaleString()}
                         </td>
                       </tr>
@@ -493,73 +532,75 @@ export default function AdminSalesPage() {
                   </tbody>
                 </table>
               </div>
-            </div>
+            </section>
 
             {/* グラフ */}
             {chartData.length > 0 && (
-              <div className="bg-white rounded-xl border border-emerald-100 p-4 shadow-sm">
-                <h3 className="font-bold text-gray-800 mb-4">
-                  商品別売上（上位10件）
-                </h3>
-                <div className="h-80 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 60 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis
-                        dataKey="name"
-                        angle={-45}
-                        textAnchor="end"
-                        height={80}
-                        tick={{ fontSize: 11 }}
-                      />
-                      <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `฿${(v / 1000).toFixed(0)}k`} />
-                      <Tooltip
-                        formatter={(value: number | undefined) => [`฿${(value ?? 0).toLocaleString()}`, "売上"]}
-                        labelFormatter={(_, payload) =>
-                          payload?.[0]?.payload?.fullName ?? ""
-                        }
-                      />
-                      <Bar dataKey="revenue" fill="#059669" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            )}
+              <>
+                <section className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
+                  <div className="flex items-center gap-2 mb-4">
+                    <BarChart3 size={20} className="text-emerald-600" />
+                    <h2 className="font-bold text-slate-800">商品別売上（上位10件）</h2>
+                  </div>
+                  <div className="h-80 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 60 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                        <XAxis
+                          dataKey="name"
+                          angle={-45}
+                          textAnchor="end"
+                          height={80}
+                          tick={{ fontSize: 11 }}
+                        />
+                        <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `฿${(v / 1000).toFixed(0)}k`} />
+                        <Tooltip
+                          formatter={(value: number | undefined) => [`฿${(value ?? 0).toLocaleString()}`, "売上"]}
+                          labelFormatter={(_, payload) =>
+                            payload?.[0]?.payload?.fullName ?? ""
+                          }
+                        />
+                        <Bar dataKey="revenue" fill="#059669" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </section>
 
-            {chartData.length > 0 && (
-              <div className="bg-white rounded-xl border border-emerald-100 p-4 shadow-sm">
-                <h3 className="font-bold text-gray-800 mb-4">
-                  商品別売上割合（円グラフ）
-                </h3>
-                <div className="h-80 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={chartData}
-                        dataKey="revenue"
-                        nameKey="fullName"
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={100}
-                        label={({ name, percent }) =>
-                          `${name} ${((percent ?? 0) * 100).toFixed(0)}%`
-                        }
-                      >
-                        {chartData.map((_, i) => (
-                          <Cell
-                            key={i}
-                            fill={CHART_COLORS[i % CHART_COLORS.length]}
-                          />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        formatter={(value: number | undefined) => `฿${(value ?? 0).toLocaleString()}`}
-                      />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
+                <section className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
+                  <div className="flex items-center gap-2 mb-4">
+                    <PieChartIcon size={20} className="text-emerald-600" />
+                    <h2 className="font-bold text-slate-800">売上割合（円グラフ）</h2>
+                  </div>
+                  <div className="h-80 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={chartData}
+                          dataKey="revenue"
+                          nameKey="fullName"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={100}
+                          label={({ name, percent }) =>
+                            `${name} ${((percent ?? 0) * 100).toFixed(0)}%`
+                          }
+                        >
+                          {chartData.map((_, i) => (
+                            <Cell
+                              key={i}
+                              fill={CHART_COLORS[i % CHART_COLORS.length]}
+                            />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          formatter={(value: number | undefined) => `฿${(value ?? 0).toLocaleString()}`}
+                        />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </section>
+              </>
             )}
           </>
         )}

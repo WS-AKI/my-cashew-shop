@@ -169,7 +169,7 @@ export default function CheckoutSuccessPage() {
           </div>
         </div>
 
-        {/* PromptPay QR（order-success と同じサイズ・スタイル） */}
+        {/* PromptPay QR（public の画像を img で表示） */}
         {BANK_INFO.promptPayQrPath && (
           <div className="bg-white rounded-2xl shadow-sm border border-amber-100 overflow-hidden">
             <div className="bg-amber-500 px-4 py-3 flex items-center gap-2">
@@ -178,12 +178,14 @@ export default function CheckoutSuccessPage() {
               </span>
             </div>
             <div className="p-4 flex flex-col items-center">
-              <div className="relative w-[224px] h-[224px] rounded-xl overflow-hidden bg-gray-50">
-                <Image
+              <div className="w-[224px] h-[224px] rounded-xl overflow-hidden bg-gray-50 flex items-center justify-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
                   src={BANK_INFO.promptPayQrPath}
                   alt="PromptPay QR"
-                  fill
-                  className="object-contain"
+                  width={224}
+                  height={224}
+                  className="max-w-full max-h-full object-contain"
                 />
               </div>
               {"accountNameTH" in BANK_INFO && (

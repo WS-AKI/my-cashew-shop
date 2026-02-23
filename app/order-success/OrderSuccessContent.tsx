@@ -34,12 +34,33 @@ export default function OrderSuccessContent() {
   const orderId = searchParams.get("order") ?? "";
 
   const [copied, setCopied] = useState<string | null>(null);
+  const [orderTotal, setOrderTotal] = useState<number | null>(null);
+  const [slipAmountInput, setSlipAmountInput] = useState("");
   const [slipFile, setSlipFile] = useState<File | null>(null);
   const [slipPreview, setSlipPreview] = useState<string | null>(null);
   const [slipUploading, setSlipUploading] = useState(false);
   const [slipUploaded, setSlipUploaded] = useState(false);
   const [slipError, setSlipError] = useState<string | null>(null);
   const slipInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!orderId) return;
+    let cancelled = false;
+    const supabase = createClient();
+    void (async () => {
+      try {
+        const { data } = await supabase
+          .from("orders")
+          .select("total_amount")
+          .eq("id", orderId)
+          .single();
+        if (!cancelled && data && typeof data.total_amount === "number") setOrderTotal(data.total_amount);
+      } catch {
+        // ignore
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [orderId]);
 
   const handleCopy = (text: string, key: string) => {
     copyToClipboard(text).then(() => {
@@ -219,7 +240,7 @@ export default function OrderSuccessContent() {
           </div>
         </section>
 
-        {/* PromptPay QR（promptPayQrPath が空でないときのみ表示） */}
+        {/* PromptPay QR（public の画像を img で表示して確実に表示） */}
         {BANK_INFO.promptPayQrPath && (
           <section className="bg-white rounded-2xl shadow-sm border border-amber-100 overflow-hidden">
             <div className="bg-amber-500 px-4 py-3 flex items-center gap-2">
@@ -228,12 +249,14 @@ export default function OrderSuccessContent() {
               </span>
             </div>
             <div className="p-4 flex flex-col items-center">
-              <div className="relative w-[224px] h-[224px] rounded-xl overflow-hidden bg-gray-50">
-                <Image
+              <div className="w-[224px] h-[224px] rounded-xl overflow-hidden bg-gray-50 flex items-center justify-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
                   src={BANK_INFO.promptPayQrPath}
                   alt="PromptPay QR"
-                  fill
-                  className="object-contain"
+                  width={224}
+                  height={224}
+                  className="max-w-full max-h-full object-contain"
                 />
               </div>
               {"accountNameTH" in BANK_INFO && (
@@ -256,6 +279,14 @@ export default function OrderSuccessContent() {
               </span>
             </div>
             <div className="p-4 space-y-4">
+              {orderTotal != null && (
+                <div className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
+                  <p className="text-gray-600 text-xs">
+                    <DualLanguageLabel primary={T.orderTotalLabel.ja} secondary={T.orderTotalLabel.th} />
+                  </p>
+                  <p className="text-gray-900 font-bold text-lg">฿{orderTotal.toLocaleString()}</p>
+                </div>
+              )}
               {!slipUploaded && (
                 <div className="bg-orange-50 border border-orange-200 rounded-xl p-3">
                   <p className="text-orange-700 text-sm font-medium">
@@ -264,6 +295,37 @@ export default function OrderSuccessContent() {
                   <p className="text-orange-500 text-xs mt-1">
                     กรุณาอัพโหลดสลิปหลังโอนเงิน เพื่อยืนยันการชำระเงิน
                   </p>
+                </div>
+              )}
+
+              {orderTotal != null && !slipUploaded && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <DualLanguageLabel primary={T.slipAmountLabel.ja} secondary={T.slipAmountLabel.th} />
+                    <span className="text-gray-400 font-normal ml-1">（任意）</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    placeholder="例: 500"
+                    value={slipAmountInput}
+                    onChange={(e) => setSlipAmountInput(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2 text-gray-800"
+                  />
+                  {slipAmountInput !== "" && (() => {
+                    const entered = Number(slipAmountInput);
+                    if (Number.isNaN(entered) || entered < 0) return null;
+                    if (entered < orderTotal) {
+                      return (
+                        <p className="mt-2 text-red-600 text-sm font-medium flex items-center gap-2">
+                          <span className="flex-shrink-0 w-5 h-5 rounded-full bg-red-100 flex items-center justify-center text-red-600">!</span>
+                          <DualLanguageLabel primary={T.slipAmountMismatch.ja} secondary={T.slipAmountMismatch.th} />
+                        </p>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
               )}
 
