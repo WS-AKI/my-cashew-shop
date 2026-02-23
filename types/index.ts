@@ -97,11 +97,30 @@ export type Product = {
 
 export type FlavorSelection = Record<FlavorColor, number>;
 
+/** セット用: オリジナルを塩あり/塩なしで分離した6種類 */
+export type SetFlavorKey = "original_salt" | "original_nosalt" | "cheese" | "bbq" | "nori" | "tomyum";
+export type SetFlavorSelection = Record<SetFlavorKey, number>;
+
+/** セット用フレーバーの表示ラベル・色（original の色を original_salt / original_nosalt で流用） */
+export const SET_FLAVOR_DISPLAY: Record<SetFlavorKey, { label: string; labelTh: string; hex: string; bg: string; text: string }> = {
+  original_salt: { ...FLAVOR_COLORS.original, label: "オリジナル（塩あり）", labelTh: "รสดั้งเดิม (มีเกลือ)" },
+  original_nosalt: { ...FLAVOR_COLORS.original, label: "オリジナル（塩なし）", labelTh: "รสดั้งเดิม (ไม่มีเกลือ)" },
+  cheese: FLAVOR_COLORS.cheese,
+  bbq: FLAVOR_COLORS.bbq,
+  nori: FLAVOR_COLORS.nori,
+  tomyum: FLAVOR_COLORS.tomyum,
+};
+
+export type SaltOption = "with_salt" | "no_salt";
+
 export type CartItem = {
   product: Product;
   quantity: number;
   selectedSizeG: number | null;
-  selectedFlavors: FlavorSelection | null;
+  /** セット時は SetFlavorSelection。単品は null。 */
+  selectedFlavors: SetFlavorSelection | null;
+  /** 単品オリジナル時のみ: 塩あり/塩なし */
+  saltOption?: SaltOption | null;
 };
 
 export function serializeFlavors(flavors: FlavorSelection | null): string {
@@ -113,11 +132,29 @@ export function serializeFlavors(flavors: FlavorSelection | null): string {
     .join(",");
 }
 
+/** セット用フレーバーをキー文字列に（cartItemKey 用） */
+export function serializeSetFlavors(flavors: SetFlavorSelection | null): string {
+  if (!flavors) return "";
+  return (Object.entries(flavors) as [SetFlavorKey, number][])
+    .filter(([, count]) => count > 0)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => `${k}=${v}`)
+    .join(",");
+}
+
 export function flavorSummary(flavors: FlavorSelection | null): string[] {
   if (!flavors) return [];
   return (Object.entries(flavors) as [FlavorColor, number][])
     .filter(([, count]) => count > 0)
     .map(([key, count]) => `${FLAVOR_COLORS[key].label} x${count}`);
+}
+
+/** セット用フレーバー表示（オリジナル塩あり/なし含む） */
+export function setFlavorSummary(flavors: SetFlavorSelection | null): string[] {
+  if (!flavors) return [];
+  return (Object.entries(flavors) as [SetFlavorKey, number][])
+    .filter(([, count]) => count > 0)
+    .map(([key, count]) => `${SET_FLAVOR_DISPLAY[key].label} x${count}`);
 }
 
 export function getVariantForSize(

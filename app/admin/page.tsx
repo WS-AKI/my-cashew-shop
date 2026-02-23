@@ -7,6 +7,8 @@ import { Lock, ShoppingBag, MapPin, Package, Loader2, ImageIcon, MessageCircle, 
 
 const FLAVOR_LABELS: Record<string, string> = {
   original: "オリジナル",
+  original_salt: "オリジナル（塩あり）",
+  original_nosalt: "オリジナル（塩なし）",
   cheese: "チーズ",
   bbq: "BBQ",
   nori: "のり",
@@ -15,12 +17,19 @@ const FLAVOR_LABELS: Record<string, string> = {
 
 function formatMetaFlavors(meta: Record<string, unknown> | null | undefined): string {
   if (!meta || typeof meta !== "object") return "";
+  const parts: string[] = [];
   const flavors = meta.flavors as Record<string, number> | undefined;
-  if (!flavors || typeof flavors !== "object") return "";
-  return Object.entries(flavors)
-    .filter(([, count]) => typeof count === "number" && count > 0)
-    .map(([key, count]) => `${FLAVOR_LABELS[key] ?? key} x${count}`)
-    .join(", ");
+  if (flavors && typeof flavors === "object") {
+    const flavorStr = Object.entries(flavors)
+      .filter(([, count]) => typeof count === "number" && count > 0)
+      .map(([key, count]) => `${FLAVOR_LABELS[key] ?? key} x${count}`)
+      .join(", ");
+    if (flavorStr) parts.push(flavorStr);
+  }
+  const saltOption = meta.salt_option as string | undefined;
+  if (saltOption === "with_salt") parts.push("塩あり");
+  if (saltOption === "no_salt") parts.push("塩なし");
+  return parts.join(" · ");
 }
 
 const ADMIN_PIN = "607051";

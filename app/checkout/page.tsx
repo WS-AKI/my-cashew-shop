@@ -6,11 +6,11 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useCart } from "@/context/CartContext";
 import { createClient } from "@/lib/supabase/client";
-import { getItemPrice, getItemOriginalPrice, FLAVOR_COLORS, FlavorColor, flavorSummary, serializeFlavors } from "@/types";
+import { getItemPrice, getItemOriginalPrice, FLAVOR_COLORS, FlavorColor, setFlavorSummary, serializeSetFlavors } from "@/types";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { DualLanguageLabel } from "@/components/ui/DualLanguageLabel";
-import { SHOP_TEXT } from "@/lib/shop-config";
+import { SHOP_TEXT, getShippingFeeBaht } from "@/lib/shop-config";
 import {
   ShoppingBag,
   ChevronRight,
@@ -30,10 +30,10 @@ const T = SHOP_TEXT.checkout;
 type CheckoutForm = {
   name: string;
   phone: string;
-  area: string;
+  /** 地区・区をセットにした1つの選択肢（value） */
+  areaDistrict: string;
   condominium: string;
   roomNumber: string;
-  district: string;
   postalCode: string;
   note: string;
 };
@@ -48,27 +48,26 @@ type SupabaseLikeError = {
 const INITIAL_FORM: CheckoutForm = {
   name: "",
   phone: "",
-  area: "",
+  areaDistrict: "",
   condominium: "",
   roomNumber: "",
-  district: "",
   postalCode: "",
   note: "",
 };
 
-const AREA_OPTIONS = [
-  { value: "ekkamai", labelJa: "エカマイエリア", labelTh: "เอกมัย" },
-  { value: "thonglor", labelJa: "トンローエリア", labelTh: "ทองหล่อ" },
-  { value: "phromphong", labelJa: "プロンポンエリア", labelTh: "พร้อมพงษ์" },
-  { value: "phra-khanong", labelJa: "プラカノンエリア", labelTh: "พระโขนง" },
-  { value: "asok", labelJa: "アソークエリア", labelTh: "อโศก" },
+/** 地区名＋区名をセットにした1つのリスト（1回のドロップダウンで選択） */
+const AREA_DISTRICT_OPTIONS = [
+  { value: "1", labelJa: "クロンタン・ヌア、ワッタナー", labelEn: "Khlong Tan Nuea, Watthana" },
+  { value: "2", labelJa: "クロントーイ・ヌア、ワッタナー", labelEn: "Khlong Toei Nuea, Watthana" },
+  { value: "3", labelJa: "プラカノン・ヌア、ワッタナー", labelEn: "Phra Khanong Nuea, Watthana" },
+  { value: "4", labelJa: "クロンタン、クロントーイ", labelEn: "Khlong Tan, Khlong Toei" },
+  { value: "5", labelJa: "クロントーイ、クロントーイ", labelEn: "Khlong Toei, Khlong Toei" },
+  { value: "6", labelJa: "プラカノン、クロントーイ", labelEn: "Phra Khanong, Khlong Toei" },
 ] as const;
 
-const DISTRICT_OPTIONS = ["Watthana", "Khlong Tan"] as const;
-
-function getAreaLabel(areaValue: string): string {
-  const found = AREA_OPTIONS.find((o) => o.value === areaValue);
-  return found ? `${found.labelJa} (${found.labelTh})` : areaValue;
+function getAreaDistrictLabel(value: string): string {
+  const found = AREA_DISTRICT_OPTIONS.find((o) => o.value === value);
+  return found ? `${found.labelJa} (${found.labelEn})` : "";
 }
 
 function generateGuestId(): string {
@@ -132,6 +131,13 @@ export default function CheckoutPage() {
   const { items, subtotal, discountRate, discountAmount, total, nextDiscountStep, clearCart } =
     useCart();
 
+  const totalWeightG = items.reduce(
+    (sum, item) => sum + (item.product.weight_g ?? 0) * item.quantity,
+    0
+  );
+  const shippingFee = getShippingFeeBaht(totalWeightG);
+  const totalWithShipping = total + shippingFee;
+
   const [form, setForm] = useState<CheckoutForm>(INITIAL_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -175,8 +181,7 @@ export default function CheckoutPage() {
       const trimmedAddress = [
         form.roomNumber ? `Room ${form.roomNumber}` : "",
         form.condominium || "",
-        form.area ? getAreaLabel(form.area) : "",
-        form.district ? `District ${form.district}` : "",
+        getAreaDistrictLabel(form.areaDistrict),
         form.postalCode || "",
       ].filter(Boolean).join(", ") || "";
       const normalizedNote = form.note.trim() || "";
@@ -193,7 +198,7 @@ export default function CheckoutPage() {
           user_phone: trimmedPhone,
           address: trimmedAddress,
           order_notes: normalizedNote,
-          total_amount: total,
+          total_amount: totalWithShipping,
           discount_amount: discountAmount,
           status: "pending",
         },
@@ -204,7 +209,7 @@ export default function CheckoutPage() {
           user_name: trimmedName,
           user_phone: trimmedPhone,
           address: trimmedAddress,
-          total_amount: total,
+          total_amount: totalWithShipping,
           status: "pending",
         },
         // shipping_* のみ必要なスキーマ向け
@@ -212,7 +217,7 @@ export default function CheckoutPage() {
           shipping_name: trimmedName,
           shipping_phone: trimmedPhone,
           shipping_address: trimmedAddress,
-          total_amount: total,
+          total_amount: totalWithShipping,
           status: "pending",
         },
         // 旧スキーマ向け: user_* / address
@@ -221,7 +226,7 @@ export default function CheckoutPage() {
           user_phone: trimmedPhone,
           address: trimmedAddress,
           order_notes: normalizedNote,
-          total_amount: total,
+          total_amount: totalWithShipping,
           discount_amount: discountAmount,
           status: "pending",
         },
@@ -229,14 +234,14 @@ export default function CheckoutPage() {
           user_name: trimmedName,
           user_phone: trimmedPhone,
           address: trimmedAddress,
-          total_amount: total,
+          total_amount: totalWithShipping,
           status: "pending",
         },
         {
           user_name: trimmedName,
           user_phone: trimmedPhone,
           address: trimmedAddress,
-          total_amount: total,
+          total_amount: totalWithShipping,
         },
         // user_id 必須スキーマ向け
         {
@@ -248,7 +253,7 @@ export default function CheckoutPage() {
           user_phone: trimmedPhone,
           address: trimmedAddress,
           order_notes: normalizedNote,
-          total_amount: total,
+          total_amount: totalWithShipping,
           discount_amount: discountAmount,
           status: "pending",
         },
@@ -257,7 +262,7 @@ export default function CheckoutPage() {
           user_name: trimmedName,
           user_phone: trimmedPhone,
           address: trimmedAddress,
-          total_amount: total,
+          total_amount: totalWithShipping,
           status: "pending",
         },
       ];
@@ -303,12 +308,15 @@ export default function CheckoutPage() {
         const orderItemsBase = items.map((item) => {
           const flavorsObj = item.selectedFlavors;
           const hasFlavors = flavorsObj && Object.values(flavorsObj).some((v) => v > 0);
+          const meta: Record<string, unknown> = {};
+          if (hasFlavors && flavorsObj) meta.flavors = flavorsObj;
+          if (item.saltOption) meta.salt_option = item.saltOption;
           return {
             order_id: orderId,
             product_id: item.product.id,
             quantity: item.quantity,
             priceValue: getItemPrice(item) || 0,
-            meta: hasFlavors ? { flavors: flavorsObj } : {},
+            meta,
           };
         });
         const itemVariants: Record<string, unknown>[][] = [
@@ -412,8 +420,8 @@ export default function CheckoutPage() {
               const flavor = product.flavor_color && product.flavor_color in FLAVOR_COLORS
                 ? FLAVOR_COLORS[product.flavor_color as FlavorColor]
                 : null;
-              const flavorList = flavorSummary(selectedFlavors);
-              const itemKey = `${product.id}-${selectedSizeG ?? "set"}-${serializeFlavors(selectedFlavors)}`;
+              const flavorList = setFlavorSummary(selectedFlavors);
+              const itemKey = `${product.id}-${selectedSizeG ?? "set"}-${serializeSetFlavors(selectedFlavors)}-${item.saltOption ?? ""}`;
               return (
                 <li key={itemKey} className="flex gap-4 p-4">
                   <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-amber-50 flex-shrink-0">
@@ -448,6 +456,11 @@ export default function CheckoutPage() {
                     {flavorList.length > 0 && (
                       <p className="text-[10px] text-orange-600 mt-0.5 leading-snug">
                         {flavorList.join(", ")}
+                      </p>
+                    )}
+                    {!product.is_set && product.flavor_color === "original" && item.saltOption && (
+                      <p className="text-[10px] text-gray-500 mt-0.5">
+                        {item.saltOption === "with_salt" ? "塩あり" : "塩なし"}
                       </p>
                     )}
                     {(() => {
@@ -486,9 +499,18 @@ export default function CheckoutPage() {
                 <span>−฿{discountAmount.toLocaleString()}</span>
               </div>
             )}
+            <div className="flex justify-between text-sm text-gray-600">
+              <span>
+                <DualLanguageLabel primary={T.shipping.ja} secondary={T.shipping.th} />
+                <span className="text-gray-400 text-xs ml-1">
+                  (～{(totalWeightG / 1000).toFixed(1)}kg)
+                </span>
+              </span>
+              <span>฿{shippingFee.toLocaleString()}</span>
+            </div>
             <div className="flex justify-between font-extrabold text-amber-950 text-xl pt-2 border-t border-amber-100">
               <span>Total (THB)</span>
-              <span>฿{total.toLocaleString()}</span>
+              <span>฿{totalWithShipping.toLocaleString()}</span>
             </div>
           </div>
         </div>
@@ -533,25 +555,26 @@ export default function CheckoutPage() {
             <Field icon={MapPin} label={<DualLanguageLabel primary={T.address.ja} secondary={T.address.th} />}>
               <div className="space-y-2">
                 <select
-                  value={form.area}
-                  onChange={(e) =>
-                    setForm({ ...form, area: e.target.value, district: "", postalCode: "" })
-                  }
+                  value={form.areaDistrict}
+                  onChange={(e) => setForm({ ...form, areaDistrict: e.target.value })}
                   className={inputClass}
                 >
-                  <option value="">配達エリアを選択してください</option>
-                  {AREA_OPTIONS.map((opt) => (
+                  <option value="">地区・区を選択してください</option>
+                  {AREA_DISTRICT_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
-                      {opt.labelJa} ({opt.labelTh})
+                      {opt.labelJa} ({opt.labelEn})
                     </option>
                   ))}
                 </select>
+                <p className="text-gray-500 text-xs">
+                  上記にない住所の場合は、下の備考欄に住所をご記入ください。
+                </p>
 
                 <input
                   type="text"
                   value={form.condominium}
                   onChange={(e) => setForm({ ...form, condominium: e.target.value })}
-                  placeholder="Condominium / Apartment name"
+                  placeholder="Condominium / Apartment name（マンション名・ご自由に記入）"
                   className={inputClass}
                   autoComplete="address-line1"
                 />
@@ -565,30 +588,15 @@ export default function CheckoutPage() {
                   autoComplete="off"
                 />
 
-                <div className="grid grid-cols-2 gap-2">
-                  <select
-                    value={form.district}
-                    onChange={(e) => setForm({ ...form, district: e.target.value })}
-                    className={inputClass}
-                  >
-                    <option value="">地区</option>
-                    {DISTRICT_OPTIONS.map((district) => (
-                      <option key={district} value={district}>
-                        {district}
-                      </option>
-                    ))}
-                  </select>
-
-                  <input
-                    type="text"
-                    value={form.postalCode}
-                    onChange={(e) => setForm({ ...form, postalCode: e.target.value })}
-                    placeholder="郵便番号（ご自由に記入）"
-                    className={inputClass}
-                    autoComplete="postal-code"
-                    inputMode="numeric"
-                  />
-                </div>
+                <input
+                  type="text"
+                  value={form.postalCode}
+                  onChange={(e) => setForm({ ...form, postalCode: e.target.value })}
+                  placeholder="郵便番号（ご自由に記入）"
+                  className={inputClass}
+                  autoComplete="postal-code"
+                  inputMode="numeric"
+                />
               </div>
             </Field>
 
@@ -596,7 +604,7 @@ export default function CheckoutPage() {
               <textarea
                 value={form.note}
                 onChange={(e) => setForm({ ...form, note: e.target.value })}
-                placeholder="Taste mix for sets, delivery instructions..."
+                placeholder="味の指定・配達希望・上記にない住所など"
                 rows={3}
                 className={`${inputClass} resize-none`}
               />

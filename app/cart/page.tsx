@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useCart } from "@/context/CartContext";
-import { getItemPrice, getItemOriginalPrice, FLAVOR_COLORS, FlavorColor, flavorSummary, serializeFlavors } from "@/types";
+import { getItemPrice, getItemOriginalPrice, FLAVOR_COLORS, FlavorColor, setFlavorSummary, serializeSetFlavors } from "@/types";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { DualLanguageLabel } from "@/components/ui/DualLanguageLabel";
@@ -61,8 +61,9 @@ export default function CartPage() {
             const flavor = product.flavor_color && product.flavor_color in FLAVOR_COLORS
               ? FLAVOR_COLORS[product.flavor_color as FlavorColor]
               : null;
-            const flavorList = flavorSummary(selectedFlavors);
-            const itemKey = `${product.id}-${selectedSizeG ?? "set"}-${serializeFlavors(selectedFlavors)}`;
+            const flavorList = setFlavorSummary(selectedFlavors);
+            const saltSuffix = item.saltOption ? `-${item.saltOption}` : "";
+            const itemKey = `${product.id}-${selectedSizeG ?? "set"}-${serializeSetFlavors(selectedFlavors)}${saltSuffix}`;
             return (
               <li
                 key={itemKey}
@@ -104,6 +105,11 @@ export default function CartPage() {
                       {flavorList.join(", ")}
                     </p>
                   )}
+                  {!product.is_set && product.flavor_color === "original" && item.saltOption && (
+                    <p className="text-[10px] text-gray-500 mt-0.5">
+                      {item.saltOption === "with_salt" ? "塩あり" : "塩なし"}
+                    </p>
+                  )}
                   {(() => {
                     const origPrice = getItemOriginalPrice(item);
                     const onSale = origPrice > unitPrice;
@@ -132,7 +138,7 @@ export default function CartPage() {
                   <div className="flex items-center gap-2 mt-3">
                     <button
                       type="button"
-                      onClick={() => updateQuantity(product.id, quantity - 1, selectedSizeG, selectedFlavors)}
+                      onClick={() => updateQuantity(product.id, quantity - 1, selectedSizeG, selectedFlavors, item.saltOption ?? null)}
                       className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center active:scale-95"
                       aria-label={T.decrease.ja}
                     >
@@ -143,7 +149,7 @@ export default function CartPage() {
                     </span>
                     <button
                       type="button"
-                      onClick={() => updateQuantity(product.id, quantity + 1, selectedSizeG, selectedFlavors)}
+                      onClick={() => updateQuantity(product.id, quantity + 1, selectedSizeG, selectedFlavors, item.saltOption ?? null)}
                       className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center active:scale-95"
                       aria-label={T.increase.ja}
                     >
@@ -151,7 +157,7 @@ export default function CartPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => removeFromCart(product.id, selectedSizeG, selectedFlavors)}
+                      onClick={() => removeFromCart(product.id, selectedSizeG, selectedFlavors, item.saltOption ?? null)}
                       className="ml-auto w-10 h-10 rounded-xl bg-red-50 text-red-500 flex items-center justify-center active:scale-95"
                       aria-label={T.remove.ja}
                     >

@@ -3,13 +3,13 @@
 import Image from "next/image";
 import { ShoppingCart, Package, Star, Plus, Minus, ChevronLeft, ChevronRight } from "lucide-react";
 import { useCart } from "@/context/CartContext";
-import { Product, FLAVOR_COLORS, FlavorColor, FlavorSelection, PriceVariant } from "@/types";
+import { Product, FLAVOR_COLORS, FlavorColor, SetFlavorKey, SetFlavorSelection, SET_FLAVOR_DISPLAY, SaltOption, PriceVariant } from "@/types";
 import { SHOP_TEXT } from "@/lib/shop-config";
 import { useState, useMemo } from "react";
 import ProductReviews from "./ProductReviews";
 
 const T = SHOP_TEXT.cart;
-const ALL_FLAVORS = Object.keys(FLAVOR_COLORS) as FlavorColor[];
+const ALL_SET_FLAVORS: SetFlavorKey[] = ["original_salt", "original_nosalt", "cheese", "bbq", "nori", "tomyum"];
 
 type Props = { product: Product };
 
@@ -18,9 +18,9 @@ function getVariants(product: Product): PriceVariant[] {
   return product.price_variants.filter((v) => v.size_g > 0 && v.price > 0);
 }
 
-function emptyFlavors(): FlavorSelection {
-  const sel = {} as FlavorSelection;
-  for (const f of ALL_FLAVORS) sel[f] = 0;
+function emptySetFlavors(): SetFlavorSelection {
+  const sel = {} as SetFlavorSelection;
+  for (const f of ALL_SET_FLAVORS) sel[f] = 0;
   return sel;
 }
 
@@ -37,9 +37,11 @@ export default function ProductCard({ product }: Props) {
     hasVariants ? variants[0].size_g : null
   );
   const [qty, setQty] = useState(1);
-  const [flavors, setFlavors] = useState<FlavorSelection>(emptyFlavors);
+  const [flavors, setFlavors] = useState<SetFlavorSelection>(emptySetFlavors);
+  const isOriginalSingle = !isSet && product.flavor_color === "original";
+  const [saltOption, setSaltOption] = useState<SaltOption>("with_salt");
 
-  const flavorTotal = ALL_FLAVORS.reduce((sum, f) => sum + flavors[f], 0);
+  const flavorTotal = ALL_SET_FLAVORS.reduce((sum, f) => sum + flavors[f], 0);
   const flavorsFull = flavorTotal >= setBagCount;
 
   const currentVariant = hasVariants
@@ -88,7 +90,7 @@ export default function ProductCard({ product }: Props) {
       ? FLAVOR_COLORS[product.flavor_color as FlavorColor]
       : null;
 
-  function handleFlavorChange(f: FlavorColor, delta: number) {
+  function handleFlavorChange(f: SetFlavorKey, delta: number) {
     setFlavors((prev) => {
       const next = { ...prev };
       const newVal = Math.max(0, next[f] + delta);
@@ -100,10 +102,11 @@ export default function ProductCard({ product }: Props) {
 
   function handleAddToCart() {
     const flavorData = isSet && setBagCount > 0 ? { ...flavors } : null;
-    addToCart(product, qty, hasVariants ? selectedSize : null, flavorData);
+    const salt = isOriginalSingle ? saltOption : null;
+    addToCart(product, qty, hasVariants ? selectedSize : null, flavorData, salt);
     setAdded(true);
     setQty(1);
-    if (isSet) setFlavors(emptyFlavors());
+    if (isSet) setFlavors(emptySetFlavors());
     setTimeout(() => setAdded(false), 2000);
   }
 
@@ -261,6 +264,33 @@ export default function ProductCard({ product }: Props) {
             </p>
           )}
 
+          {/* 単品オリジナル: 塩あり/塩なし */}
+          {isOriginalSingle && (
+            <div className="flex items-center gap-3 mb-2">
+              <span className="text-xs font-bold text-gray-600">塩:</span>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="radio"
+                  name={`salt-${product.id}`}
+                  checked={saltOption === "with_salt"}
+                  onChange={() => setSaltOption("with_salt")}
+                  className="text-amber-500"
+                />
+                <span className="text-sm font-medium">塩あり</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="radio"
+                  name={`salt-${product.id}`}
+                  checked={saltOption === "no_salt"}
+                  onChange={() => setSaltOption("no_salt")}
+                  className="text-amber-500"
+                />
+                <span className="text-sm font-medium">塩なし</span>
+              </label>
+            </div>
+          )}
+
           <div className="mt-auto space-y-3">
             {/* Size selector (non-set) */}
             {hasVariants && (
@@ -290,8 +320,8 @@ export default function ProductCard({ product }: Props) {
                   <span className="text-orange-400 font-normal ml-1">เลือกรส</span>
                 </p>
                 <div className="space-y-1.5">
-                  {ALL_FLAVORS.map((f) => {
-                    const c = FLAVOR_COLORS[f];
+                  {ALL_SET_FLAVORS.map((f) => {
+                    const c = SET_FLAVOR_DISPLAY[f];
                     return (
                       <div
                         key={f}

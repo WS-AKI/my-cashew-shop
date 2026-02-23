@@ -9,24 +9,14 @@ import {
   Check,
   Upload,
   Loader2,
-  QrCode,
   Building2,
   AlertCircle,
   ChevronRight,
 } from "lucide-react";
+import { DualLanguageLabel } from "@/components/ui/DualLanguageLabel";
+import { SHOP_TEXT, BANK_INFO } from "@/lib/shop-config";
 
-// ─── 銀行口座情報（実際の情報に変更してください） ───────────
-const BANK_INFO = {
-  bankName: "〇〇銀行",
-  branchName: "〇〇支店",
-  accountType: "普通",
-  accountNumber: "1234567",
-  accountName: "カシュー ハナコ",
-} as const;
-
-// QRコード画像があれば public フォルダに置いてパスを指定
-const QR_CODE_IMAGE = ""; // 例: "/qr-promptpay.png"
-// ────────────────────────────────────────────────────────────
+const T = SHOP_TEXT.orderSuccess;
 
 export default function CheckoutSuccessPage() {
   const supabase = createClient();
@@ -96,7 +86,7 @@ export default function CheckoutSuccessPage() {
     return (
       <button
         onClick={() => copyToClipboard(value, label)}
-        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all active:scale-95 ${
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all active:scale-95 shrink-0 ${
           isCopied
             ? "bg-green-100 text-green-600"
             : "bg-amber-100 text-amber-700 hover:bg-amber-200"
@@ -105,12 +95,12 @@ export default function CheckoutSuccessPage() {
         {isCopied ? (
           <>
             <Check size={14} />
-            コピー済み
+            {T.copied.ja}
           </>
         ) : (
           <>
             <Copy size={14} />
-            コピー
+            {T.copy.ja}
           </>
         )}
       </button>
@@ -133,116 +123,75 @@ export default function CheckoutSuccessPage() {
       </div>
 
       <div className="max-w-lg mx-auto px-4 -mt-8 space-y-4">
-        {/* ─── 銀行口座情報カード ──────────────────────────── */}
-        <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-          <div className="bg-amber-500 px-5 py-3 flex items-center gap-2">
+        {/* 振込先口座（order-success と同一レイアウト・shop-config 参照） */}
+        <div className="bg-white rounded-2xl shadow-sm border border-amber-100 overflow-hidden">
+          <div className="bg-amber-500 px-4 py-3 flex items-center gap-2">
             <Building2 size={20} className="text-white" />
-            <h2 className="text-white font-bold text-lg">振込先口座</h2>
+            <span className="text-white font-bold">
+              <DualLanguageLabel primary={T.paymentMethod.ja} secondary={T.paymentMethod.th} className="text-white" secondaryClassName="text-white/80 text-xs" />
+            </span>
           </div>
-
-          <div className="p-5 space-y-4">
-            {/* 銀行名 */}
-            <div className="flex items-center justify-between py-3 border-b border-gray-100">
+          <div className="p-4 space-y-4">
+            <p className="text-amber-800 text-sm font-medium">
+              <DualLanguageLabel primary={T.notePayment.ja} secondary={T.notePayment.th} />
+            </p>
+            <div className="border-t border-amber-100 pt-4 space-y-3">
               <div>
-                <p className="text-xs text-gray-400 font-medium">銀行名</p>
-                <p className="text-gray-800 font-bold text-lg mt-0.5">
-                  {BANK_INFO.bankName}
+                <p className="text-gray-400 text-xs font-medium">
+                  <DualLanguageLabel primary={T.bankName.ja} secondary={T.bankName.th} />
                 </p>
+                <p className="text-gray-800 font-bold mt-0.5">{BANK_INFO.bankName}</p>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-gray-400 text-xs font-medium">
+                    <DualLanguageLabel primary={T.accountName.ja} secondary={T.accountName.th} />
+                  </p>
+                  <p className="text-gray-800 font-bold mt-0.5">{BANK_INFO.accountName}</p>
+                  {"accountNameTH" in BANK_INFO && (
+                    <p className="text-gray-500 text-sm mt-0.5" lang="th">
+                      {BANK_INFO.accountNameTH}
+                    </p>
+                  )}
+                </div>
+                <CopyButton value={BANK_INFO.accountName} label="name" />
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-gray-400 text-xs font-medium">
+                    <DualLanguageLabel primary={T.accountNumber.ja} secondary={T.accountNumber.th} />
+                  </p>
+                  <p className="text-gray-800 font-bold text-lg tracking-wider mt-0.5">{BANK_INFO.accountNumber}</p>
+                </div>
+                <CopyButton value={BANK_INFO.accountNumber} label="number" />
               </div>
             </div>
-
-            {/* 支店名 */}
-            <div className="flex items-center justify-between py-3 border-b border-gray-100">
-              <div>
-                <p className="text-xs text-gray-400 font-medium">支店名</p>
-                <p className="text-gray-800 font-bold text-lg mt-0.5">
-                  {BANK_INFO.branchName}
-                </p>
-              </div>
-            </div>
-
-            {/* 口座種別 */}
-            <div className="flex items-center justify-between py-3 border-b border-gray-100">
-              <div>
-                <p className="text-xs text-gray-400 font-medium">口座種別</p>
-                <p className="text-gray-800 font-bold text-lg mt-0.5">
-                  {BANK_INFO.accountType}
-                </p>
-              </div>
-            </div>
-
-            {/* 口座番号（コピーボタン付き） */}
-            <div className="flex items-center justify-between py-3 border-b border-gray-100">
-              <div>
-                <p className="text-xs text-gray-400 font-medium">口座番号</p>
-                <p className="text-gray-800 font-bold text-2xl mt-0.5 tracking-widest">
-                  {BANK_INFO.accountNumber}
-                </p>
-              </div>
-              <CopyButton
-                value={BANK_INFO.accountNumber}
-                label="account"
-              />
-            </div>
-
-            {/* 名義（コピーボタン付き） */}
-            <div className="flex items-center justify-between py-3">
-              <div>
-                <p className="text-xs text-gray-400 font-medium">口座名義</p>
-                <p className="text-gray-800 font-bold text-xl mt-0.5">
-                  {BANK_INFO.accountName}
-                </p>
-              </div>
-              <CopyButton value={BANK_INFO.accountName} label="name" />
-            </div>
-
-            {/* 全情報をまとめてコピー */}
-            <button
-              onClick={() =>
-                copyToClipboard(
-                  `${BANK_INFO.bankName} ${BANK_INFO.branchName} ${BANK_INFO.accountType} ${BANK_INFO.accountNumber} ${BANK_INFO.accountName}`,
-                  "all"
-                )
-              }
-              className={`w-full py-3.5 rounded-xl font-bold text-base flex items-center justify-center gap-2 transition-all active:scale-95 ${
-                copied === "all"
-                  ? "bg-green-500 text-white"
-                  : "bg-amber-500 text-white hover:bg-amber-600"
-              }`}
-            >
-              {copied === "all" ? (
-                <>
-                  <Check size={20} />
-                  コピーしました！
-                </>
-              ) : (
-                <>
-                  <Copy size={20} />
-                  口座情報をまとめてコピー
-                </>
-              )}
-            </button>
           </div>
         </div>
 
-        {/* ─── QRコード（設定されている場合のみ表示） ─────── */}
-        {QR_CODE_IMAGE && (
-          <div className="bg-white rounded-2xl shadow-lg p-5 text-center">
-            <div className="flex items-center justify-center gap-2 mb-4">
-              <QrCode size={20} className="text-amber-500" />
-              <h3 className="font-bold text-gray-800">QRコードで振込</h3>
+        {/* PromptPay QR（order-success と同じサイズ・スタイル） */}
+        {BANK_INFO.promptPayQrPath && (
+          <div className="bg-white rounded-2xl shadow-sm border border-amber-100 overflow-hidden">
+            <div className="bg-amber-500 px-4 py-3 flex items-center gap-2">
+              <span className="text-white font-bold">
+                <DualLanguageLabel primary={T.promptPay.ja} secondary={T.promptPay.th} className="text-white" secondaryClassName="text-white/80 text-xs" />
+              </span>
             </div>
-            <div className="relative w-48 h-48 mx-auto rounded-xl overflow-hidden">
-              <Image
-                src={QR_CODE_IMAGE}
-                alt="振込用QRコード"
-                fill
-                className="object-contain"
-              />
+            <div className="p-4 flex flex-col items-center">
+              <div className="relative w-[224px] h-[224px] rounded-xl overflow-hidden bg-gray-50">
+                <Image
+                  src={BANK_INFO.promptPayQrPath}
+                  alt="PromptPay QR"
+                  fill
+                  className="object-contain"
+                />
+              </div>
+              {"accountNameTH" in BANK_INFO && (
+                <p className="text-gray-500 text-sm mt-2" lang="th">
+                  {BANK_INFO.accountNameTH}
+                </p>
+              )}
             </div>
-            <p className="text-gray-500 text-sm mt-3">
-              スキャンして振込アプリを開いてください
-            </p>
           </div>
         )}
 

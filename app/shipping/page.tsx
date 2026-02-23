@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Truck, Package, Clock } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { SHIPPING_DESCRIPTION } from "@/lib/shop-config";
 
 export default function ShippingPage() {
   return (
@@ -23,11 +24,11 @@ export default function ShippingPage() {
               <h2 className="font-bold text-amber-950">送料</h2>
             </div>
             <p className="text-gray-600 text-sm leading-relaxed">
-              バンコク市内は実費（配送業者により40〜60バーツ程度）をお願いしています。
-              1,000バーツ以上ご注文で送料無料になる場合があります。詳しくは注文時または公式LINEでお問い合わせください。
+              {SHIPPING_DESCRIPTION.ja}
+              会計時に重量に応じて自動で加算されます。
             </p>
             <p className="text-gray-500 text-xs mt-2" lang="th">
-              กรุงเทพฯ ค่าขนส่งตามจริง (ประมาณ 40–60 บาท) สั่งซื้อครบ 1,000 บาทอาจได้ค่าส่งฟรี
+              {SHIPPING_DESCRIPTION.th} — คำนวณอัตโนมัติตอนชำระเงิน
             </p>
           </div>
 

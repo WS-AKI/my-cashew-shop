@@ -9,7 +9,7 @@ import {
   useEffect,
   ReactNode,
 } from "react";
-import { CartItem, Product, FlavorSelection, getItemPrice, serializeFlavors } from "@/types";
+import { CartItem, Product, SetFlavorSelection, SaltOption, getItemPrice, serializeSetFlavors } from "@/types";
 
 const CART_STORAGE_KEY = "cashew-shop-cart";
 
@@ -28,17 +28,19 @@ export function getNextDiscountStep(totalQuantity: number): {
   return null;
 }
 
-function cartItemKey(productId: string, sizeG: number | null, flavors?: FlavorSelection | null): string {
+function cartItemKey(productId: string, sizeG: number | null, flavors?: SetFlavorSelection | null, saltOption?: SaltOption | null): string {
   const base = sizeG ? `${productId}__${sizeG}` : productId;
-  const flavorStr = serializeFlavors(flavors ?? null);
-  return flavorStr ? `${base}__f:${flavorStr}` : base;
+  const flavorStr = serializeSetFlavors(flavors ?? null);
+  const flavorPart = flavorStr ? `__f:${flavorStr}` : "";
+  const saltPart = saltOption ? `__s:${saltOption}` : "";
+  return `${base}${flavorPart}${saltPart}`;
 }
 
 type CartContextType = {
   items: CartItem[];
-  addToCart: (product: Product, quantity?: number, sizeG?: number | null, flavors?: FlavorSelection | null) => void;
-  removeFromCart: (productId: string, sizeG?: number | null, flavors?: FlavorSelection | null) => void;
-  updateQuantity: (productId: string, quantity: number, sizeG?: number | null, flavors?: FlavorSelection | null) => void;
+  addToCart: (product: Product, quantity?: number, sizeG?: number | null, flavors?: SetFlavorSelection | null, saltOption?: SaltOption | null) => void;
+  removeFromCart: (productId: string, sizeG?: number | null, flavors?: SetFlavorSelection | null, saltOption?: SaltOption | null) => void;
+  updateQuantity: (productId: string, quantity: number, sizeG?: number | null, flavors?: SetFlavorSelection | null, saltOption?: SaltOption | null) => void;
   clearCart: () => void;
   totalQuantity: number;
   subtotal: number;
@@ -50,13 +52,32 @@ type CartContextType = {
 
 const CartContext = createContext<CartContextType | null>(null);
 
+/** 旧形式（FlavorSelection の original）を SetFlavorSelection に移行 */
+function normalizeCartItem(item: CartItem): CartItem {
+  const fl = item.selectedFlavors as Record<string, number> | null | undefined;
+  if (fl && typeof fl === "object" && "original" in fl && typeof (fl as { original?: number }).original === "number") {
+    const old = fl as { original?: number; cheese?: number; bbq?: number; nori?: number; tomyum?: number };
+    const setFlavors: SetFlavorSelection = {
+      original_salt: old.original ?? 0,
+      original_nosalt: 0,
+      cheese: old.cheese ?? 0,
+      bbq: old.bbq ?? 0,
+      nori: old.nori ?? 0,
+      tomyum: old.tomyum ?? 0,
+    };
+    return { ...item, selectedFlavors: setFlavors };
+  }
+  return item;
+}
+
 function loadCart(): CartItem[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = localStorage.getItem(CART_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as CartItem[];
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(normalizeCartItem);
   } catch {
     return [];
   }
@@ -86,31 +107,31 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [items, hydrated]);
 
   const addToCart = useCallback(
-    (product: Product, quantity = 1, sizeG: number | null = null, flavors: FlavorSelection | null = null) => {
+    (product: Product, quantity = 1, sizeG: number | null = null, flavors: SetFlavorSelection | null = null, saltOption: SaltOption | null = null) => {
       setItems((prev) => {
-        const key = cartItemKey(product.id, sizeG, flavors);
+        const key = cartItemKey(product.id, sizeG, flavors, saltOption);
         const existing = prev.find(
-          (item) => cartItemKey(item.product.id, item.selectedSizeG, item.selectedFlavors) === key
+          (item) => cartItemKey(item.product.id, item.selectedSizeG, item.selectedFlavors, item.saltOption) === key
         );
         if (existing) {
           return prev.map((item) =>
-            cartItemKey(item.product.id, item.selectedSizeG, item.selectedFlavors) === key
+            cartItemKey(item.product.id, item.selectedSizeG, item.selectedFlavors, item.saltOption) === key
               ? { ...item, quantity: item.quantity + quantity }
               : item
           );
         }
-        return [...prev, { product, quantity, selectedSizeG: sizeG, selectedFlavors: flavors }];
+        return [...prev, { product, quantity, selectedSizeG: sizeG, selectedFlavors: flavors, saltOption: saltOption ?? undefined }];
       });
     },
     []
   );
 
   const removeFromCart = useCallback(
-    (productId: string, sizeG: number | null = null, flavors: FlavorSelection | null = null) => {
-      const key = cartItemKey(productId, sizeG, flavors);
+    (productId: string, sizeG: number | null = null, flavors: SetFlavorSelection | null = null, saltOption: SaltOption | null = null) => {
+      const key = cartItemKey(productId, sizeG, flavors, saltOption);
       setItems((prev) =>
         prev.filter(
-          (item) => cartItemKey(item.product.id, item.selectedSizeG, item.selectedFlavors) !== key
+          (item) => cartItemKey(item.product.id, item.selectedSizeG, item.selectedFlavors, item.saltOption) !== key
         )
       );
     },
@@ -118,19 +139,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
   );
 
   const updateQuantity = useCallback(
-    (productId: string, quantity: number, sizeG: number | null = null, flavors: FlavorSelection | null = null) => {
-      const key = cartItemKey(productId, sizeG, flavors);
+    (productId: string, quantity: number, sizeG: number | null = null, flavors: SetFlavorSelection | null = null, saltOption: SaltOption | null = null) => {
+      const key = cartItemKey(productId, sizeG, flavors, saltOption);
       if (quantity <= 0) {
         setItems((prev) =>
           prev.filter(
-            (item) => cartItemKey(item.product.id, item.selectedSizeG, item.selectedFlavors) !== key
+            (item) => cartItemKey(item.product.id, item.selectedSizeG, item.selectedFlavors, item.saltOption) !== key
           )
         );
         return;
       }
       setItems((prev) =>
         prev.map((item) =>
-          cartItemKey(item.product.id, item.selectedSizeG, item.selectedFlavors) === key
+          cartItemKey(item.product.id, item.selectedSizeG, item.selectedFlavors, item.saltOption) === key
             ? { ...item, quantity }
             : item
         )

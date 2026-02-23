@@ -219,6 +219,32 @@ export default function OrderSuccessContent() {
           </div>
         </section>
 
+        {/* PromptPay QR（promptPayQrPath が空でないときのみ表示） */}
+        {BANK_INFO.promptPayQrPath && (
+          <section className="bg-white rounded-2xl shadow-sm border border-amber-100 overflow-hidden">
+            <div className="bg-amber-500 px-4 py-3 flex items-center gap-2">
+              <span className="text-white font-bold">
+                <DualLanguageLabel primary={T.promptPay.ja} secondary={T.promptPay.th} className="text-white" secondaryClassName="text-white/80 text-xs" />
+              </span>
+            </div>
+            <div className="p-4 flex flex-col items-center">
+              <div className="relative w-[224px] h-[224px] rounded-xl overflow-hidden bg-gray-50">
+                <Image
+                  src={BANK_INFO.promptPayQrPath}
+                  alt="PromptPay QR"
+                  fill
+                  className="object-contain"
+                />
+              </div>
+              {"accountNameTH" in BANK_INFO && (
+                <p className="text-gray-500 text-sm mt-2" lang="th">
+                  {BANK_INFO.accountNameTH}
+                </p>
+              )}
+            </div>
+          </section>
+        )}
+
         {/* Slip upload — mandatory */}
         {orderId && (
           <section className="bg-white rounded-2xl shadow-sm border-2 border-orange-300 overflow-hidden">
@@ -292,7 +318,7 @@ export default function OrderSuccessContent() {
                       type="button"
                       onClick={handleSlipUpload}
                       disabled={slipUploading}
-                      className="w-full py-4 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold flex items-center justify-center gap-2 disabled:opacity-60"
+                      className="w-full py-4 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-bold flex items-center justify-center gap-2 disabled:opacity-60 shadow-sm"
                     >
                       {slipUploading ? (
                         <>
@@ -318,7 +344,7 @@ export default function OrderSuccessContent() {
           <div className="space-y-4">
             <Link
               href={`/track?id=${orderId}`}
-              className="block w-full py-3 rounded-xl bg-gray-800 hover:bg-gray-900 text-white font-bold text-center flex items-center justify-center gap-2"
+              className="block w-full py-3 rounded-2xl bg-gray-800 hover:bg-gray-900 text-white font-bold text-center flex items-center justify-center gap-2 border border-gray-700 shadow-sm"
             >
               <Search size={18} />
               注文状況を確認する
@@ -326,7 +352,7 @@ export default function OrderSuccessContent() {
             </Link>
             <Link
               href="/#products"
-              className="block w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-center flex items-center justify-center gap-2"
+              className="block w-full py-3 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-center flex items-center justify-center gap-2 shadow-sm"
             >
               {T.continueShopping.ja}
               <span className="text-white/80 text-xs">({T.continueShopping.th})</span>
@@ -338,7 +364,7 @@ export default function OrderSuccessContent() {
             <div className="text-center">
               <Link
                 href="/#products"
-                className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold px-6 py-3 rounded-xl"
+                className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold px-6 py-3 rounded-2xl shadow-sm"
               >
                 {T.continueShopping.ja}
                 <span className="text-white/80 text-xs ml-1">({T.continueShopping.th})</span>

@@ -221,12 +221,12 @@ function TrackContent() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="注文番号 / Order ID"
-            className="flex-1 px-4 py-3 rounded-xl border-2 border-amber-200 bg-white text-gray-800 placeholder:text-gray-400 focus:border-amber-500 focus:outline-none transition-colors"
+            className="flex-1 px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-800 placeholder:text-gray-400 focus:ring-2 focus:ring-amber-400 focus:border-transparent transition text-base"
           />
           <button
             type="submit"
             disabled={loading || !input.trim()}
-            className="px-5 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors active:scale-95"
+            className="px-5 py-3 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-bold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors active:scale-95 shadow-sm"
           >
             {loading ? <Clock size={18} className="animate-spin" /> : <Search size={18} />}
             確認

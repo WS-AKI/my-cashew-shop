@@ -34,6 +34,7 @@ export const SHOP_TEXT = {
     addressRequired: { ja: "住所を入力してください", th: "กรุณากรอกที่อยู่" },
     cartEmpty: { ja: "カートが空です", th: "ตะกร้าว่าง" },
     cartEmptyHint: { ja: "商品をカートに入れてからお進みください。", th: "กรุณาเพิ่มสินค้าในตะกร้าก่อน" },
+    shipping: { ja: "送料", th: "ค่าขนส่ง" },
   },
   orderSuccess: {
     /** Before slip upload */
@@ -78,7 +79,23 @@ export const BANK_INFO = {
   accountNameTH: "น.ส. จิราพร เคหะลูน",
   accountNumber: "004-3-70237-8",
   /** Path to PromptPay QR image in /public. Empty = hide QR section. */
-  promptPayQrPath: "",
+  promptPayQrPath: "/promptpay-qr.png",
+} as const;
+
+/**
+ * 送料計算（重量ベース）
+ * 1kgまで: 50฿、2kg: 60฿、3kg: 70฿、4kg: 80฿、5kg: 90฿… 以降1kgごとに+10฿
+ */
+export function getShippingFeeBaht(weightGrams: number): number {
+  const kg = weightGrams / 1000;
+  if (kg <= 1) return 50;
+  return 50 + 10 * (Math.ceil(kg) - 1);
+}
+
+/** 送料表示用テキスト（送料ページ・チェックアウトで使用） */
+export const SHIPPING_DESCRIPTION = {
+  ja: "1kgまでは50バーツ、2kgで60バーツ、3kgで70バーツ。以降は1kgごとに10バーツ加算されます。",
+  th: "ถึง 1kg 50 บาท, 2kg 60 บาท, 3kg 70 บาท หลังจากนั้น +10 บาท ต่อ 1kg",
 } as const;
 
 /** 公式LINEアカウントのURL（お問い合わせ用）。Vercel/環境変数で NEXT_PUBLIC_LINE_OFFICIAL_URL を設定可能。 */

@@ -71,13 +71,6 @@ export default function HomePage() {
               </Link>
             </div>
 
-            <div className="mt-10 inline-flex items-center gap-2 bg-amber-900/10 text-amber-900 border border-amber-200 rounded-full px-5 py-2.5 text-sm font-medium">
-              🎉
-              <span>
-                <strong>3個以上で5%OFF</strong>・
-                <strong>5個以上で10%OFF</strong>のセット割実施中！
-              </span>
-            </div>
           </div>
         </section>
 
