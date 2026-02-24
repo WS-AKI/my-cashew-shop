@@ -61,6 +61,7 @@ export default function ProductCard({ product }: Props) {
       }
     }
     return imgs;
+    // eslint-disable-next-line react-hooks/preserve-manual-memoization -- product.gallery_urls is from props, stable per product
   }, [displayImageUrl, product.gallery_urls]);
 
   const [galleryIdx, setGalleryIdx] = useState(0);

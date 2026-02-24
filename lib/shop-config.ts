@@ -71,6 +71,23 @@ export const SHOP_TEXT = {
     },
     orderTotalLabel: { ja: "お支払い合計", th: "ยอดที่ต้องชำระ" },
     slipAmountLabel: { ja: "スリップに記載の金額 (฿)", th: "จำนวนในสลิป (บาท)" },
+    slipAmountRequired: { ja: "（必須・照合用）", th: "(จำเป็น เพื่อตรวจสอบ)" },
+    /** スリップ金額が注文合計と一致 */
+    slipAmountMatch: {
+      ja: "注文金額と一致しています。",
+      th: "จำนวนตรงกับยอดสั่งซื้อ",
+    },
+    /** スリップ金額が注文合計より多い */
+    slipAmountOver: {
+      ja: "注文金額より多いです。過払い分は返金等で対応します。",
+      th: "จ่ายเกินยอดสั่ง เราจะจัดการส่วนที่เกิน (คืนหรือเก็บเป็นเครดิต)",
+    },
+    /** 写真から金額を読み取ったとき */
+    slipAmountOcrHint: {
+      ja: "写真から読み取りました。確認・修正してください。",
+      th: "อ่านจากรูปแล้ว กรุณาตรวจสอบหรือแก้ไข",
+    },
+    slipOcrReading: { ja: "写真から金額を読み取り中…", th: "กำลังอ่านจำนวนจากรูป…" },
   },
   product: {
     outOfStock: { ja: "品切れ中", th: "หมดแล้ว" },
@@ -85,8 +102,10 @@ export const BANK_INFO = {
   /** Thai name exactly as shown in the PromptPay QR image (for verification) */
   accountNameTH: "น.ส. จิราพร เคหะลูน",
   accountNumber: "004-3-70237-8",
-  /** Path to PromptPay QR image in /public. Empty = hide QR section. */
-  promptPayQrPath: "/promptpay-qr.png",
+  /** Path to PromptPay QR image in /public. 実際のファイルに合わせて .png または .jpg を指定。 */
+  promptPayQrPath: "/promptpay-qr.jpg",
+  /** Optional fallback when main path fails to load. */
+  promptPayQrPathFallback: "/promptpay-qr.png",
 } as const;
 
 /**

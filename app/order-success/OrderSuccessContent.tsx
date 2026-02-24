@@ -42,6 +42,10 @@ export default function OrderSuccessContent() {
   const [slipUploaded, setSlipUploaded] = useState(false);
   const [slipError, setSlipError] = useState<string | null>(null);
   const slipInputRef = useRef<HTMLInputElement>(null);
+  const [qrImageError, setQrImageError] = useState(false);
+  const [qrTriedFallback, setQrTriedFallback] = useState(false);
+  const [slipOcrReading, setSlipOcrReading] = useState(false);
+  const [slipOcrDone, setSlipOcrDone] = useState(false);
 
   useEffect(() => {
     if (!orderId) return;
@@ -69,6 +73,35 @@ export default function OrderSuccessContent() {
     });
   };
 
+  /** スリップ画像から金額らしき数値を抽出（OCR）。注文合計に近い or 妥当な金額を返す。 */
+  async function tryReadAmountFromSlipImage(file: File, orderTotalBaht: number | null): Promise<number | null> {
+    try {
+      const { createWorker } = await import("tesseract.js");
+      const worker = await createWorker("eng");
+      const { data } = await worker.recognize(file);
+      await worker.terminate();
+      const text = data.text || "";
+      // 数字のみ抽出（カンマ・ピリオド付きも）。例: 150, 1,500, 150.00
+      const matches = text.match(/\d[\d,.]*/g) || [];
+      const numbers: number[] = [];
+      for (const m of matches) {
+        const n = Math.round(parseFloat(m.replace(/,/g, "")));
+        if (Number.isFinite(n) && n >= 1 && n <= 9999999) numbers.push(n);
+      }
+      if (numbers.length === 0) return null;
+      // 注文合計があればそれに一番近い値、なければ最大額（振込額は大きめのことが多い）
+      if (orderTotalBaht != null) {
+        const closest = numbers.reduce((a, b) =>
+          Math.abs(a - orderTotalBaht) <= Math.abs(b - orderTotalBaht) ? a : b
+        );
+        return closest;
+      }
+      return Math.max(...numbers);
+    } catch {
+      return null;
+    }
+  }
+
   function handleSlipChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !file.type.startsWith("image/")) return;
@@ -76,6 +109,17 @@ export default function OrderSuccessContent() {
     setSlipPreview(URL.createObjectURL(file));
     setSlipError(null);
     setSlipUploaded(false);
+    setSlipOcrDone(false);
+    setSlipAmountInput("");
+    setSlipOcrReading(true);
+    void (async () => {
+      const amount = await tryReadAmountFromSlipImage(file, orderTotal);
+      setSlipOcrReading(false);
+      if (amount != null) {
+        setSlipAmountInput(String(amount));
+        setSlipOcrDone(true);
+      }
+    })();
   }
 
   async function handleSlipUpload() {
@@ -250,14 +294,29 @@ export default function OrderSuccessContent() {
             </div>
             <div className="p-4 flex flex-col items-center">
               <div className="w-[224px] h-[224px] rounded-xl overflow-hidden bg-gray-50 flex items-center justify-center">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={BANK_INFO.promptPayQrPath}
-                  alt="PromptPay QR"
-                  width={224}
-                  height={224}
-                  className="max-w-full max-h-full object-contain"
-                />
+                {qrImageError ? (
+                  <p className="text-gray-500 text-sm text-center px-2">
+                    QRコード画像がありません。public フォルダに promptpay-qr.png または promptpay-qr.jpg を配置してください。
+                  </p>
+                ) : (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={qrTriedFallback && "promptPayQrPathFallback" in BANK_INFO ? BANK_INFO.promptPayQrPathFallback : BANK_INFO.promptPayQrPath}
+                      alt="PromptPay QR"
+                      width={224}
+                      height={224}
+                      className="max-w-full max-h-full object-contain"
+                      onError={() => {
+                        if (!qrTriedFallback && "promptPayQrPathFallback" in BANK_INFO && BANK_INFO.promptPayQrPathFallback) {
+                          setQrTriedFallback(true);
+                        } else {
+                          setQrImageError(true);
+                        }
+                      }}
+                    />
+                  </>
+                )}
               </div>
               {"accountNameTH" in BANK_INFO && (
                 <p className="text-gray-500 text-sm mt-2" lang="th">
@@ -302,17 +361,30 @@ export default function OrderSuccessContent() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     <DualLanguageLabel primary={T.slipAmountLabel.ja} secondary={T.slipAmountLabel.th} />
-                    <span className="text-gray-400 font-normal ml-1">（任意）</span>
+                    <span className="text-amber-600 font-medium ml-1">
+                      <DualLanguageLabel primary={T.slipAmountRequired.ja} secondary={T.slipAmountRequired.th} />
+                    </span>
                   </label>
+                  {slipOcrReading && (
+                    <p className="text-amber-600 text-sm mb-2 flex items-center gap-2">
+                      <Loader2 size={16} className="animate-spin flex-shrink-0" />
+                      <DualLanguageLabel primary={T.slipOcrReading.ja} secondary={T.slipOcrReading.th} />
+                    </p>
+                  )}
                   <input
                     type="number"
                     min={0}
                     step={1}
-                    placeholder="例: 500"
+                    placeholder="例: 150"
                     value={slipAmountInput}
-                    onChange={(e) => setSlipAmountInput(e.target.value)}
+                    onChange={(e) => { setSlipAmountInput(e.target.value); setSlipOcrDone(false); }}
                     className="w-full border border-gray-200 rounded-xl px-4 py-2 text-gray-800"
                   />
+                  {slipOcrDone && slipAmountInput !== "" && (
+                    <p className="mt-1.5 text-gray-600 text-xs flex items-center gap-1">
+                      <DualLanguageLabel primary={T.slipAmountOcrHint.ja} secondary={T.slipAmountOcrHint.th} />
+                    </p>
+                  )}
                   {slipAmountInput !== "" && (() => {
                     const entered = Number(slipAmountInput);
                     if (Number.isNaN(entered) || entered < 0) return null;
@@ -324,7 +396,20 @@ export default function OrderSuccessContent() {
                         </p>
                       );
                     }
-                    return null;
+                    if (entered === orderTotal) {
+                      return (
+                        <p className="mt-2 text-green-600 text-sm font-medium flex items-center gap-2">
+                          <span className="flex-shrink-0 w-5 h-5 rounded-full bg-green-100 flex items-center justify-center text-green-600">✓</span>
+                          <DualLanguageLabel primary={T.slipAmountMatch.ja} secondary={T.slipAmountMatch.th} />
+                        </p>
+                      );
+                    }
+                    return (
+                      <p className="mt-2 text-amber-700 text-sm font-medium flex items-center gap-2">
+                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center text-amber-600">i</span>
+                        <DualLanguageLabel primary={T.slipAmountOver.ja} secondary={T.slipAmountOver.th} />
+                      </p>
+                    );
                   })()}
                 </div>
               )}

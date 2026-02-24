@@ -44,7 +44,7 @@ export default function AdminProductsPage() {
   }, [supabase]);
 
   useEffect(() => {
-    fetchProducts();
+    queueMicrotask(() => fetchProducts());
   }, [fetchProducts]);
 
   // ─── 削除 ────────────────────────────────────────────────

@@ -18,6 +18,42 @@ import { SHOP_TEXT, BANK_INFO } from "@/lib/shop-config";
 
 const T = SHOP_TEXT.orderSuccess;
 
+function CopyButton({
+  value,
+  label,
+  copied,
+  onCopy,
+}: {
+  value: string;
+  label: string;
+  copied: string | null;
+  onCopy: (text: string, key: string) => void;
+}) {
+  const isCopied = copied === label;
+  return (
+    <button
+      onClick={() => onCopy(value, label)}
+      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all active:scale-95 shrink-0 ${
+        isCopied
+          ? "bg-green-100 text-green-600"
+          : "bg-amber-100 text-amber-700 hover:bg-amber-200"
+      }`}
+    >
+      {isCopied ? (
+        <>
+          <Check size={14} />
+          {T.copied.ja}
+        </>
+      ) : (
+        <>
+          <Copy size={14} />
+          {T.copy.ja}
+        </>
+      )}
+    </button>
+  );
+}
+
 export default function CheckoutSuccessPage() {
   const supabase = createClient();
 
@@ -28,15 +64,15 @@ export default function CheckoutSuccessPage() {
   const [uploading, setUploading] = useState(false);
   const [uploaded, setUploaded] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [qrImageError, setQrImageError] = useState(false);
+  const [qrTriedFallback, setQrTriedFallback] = useState(false);
 
-  // ─── クリップボードにコピー ──────────────────────────────
   async function copyToClipboard(text: string, key: string) {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(key);
       setTimeout(() => setCopied(null), 2000);
     } catch {
-      // フォールバック（古いブラウザ対応）
       const el = document.createElement("textarea");
       el.value = text;
       document.body.appendChild(el);
@@ -48,7 +84,6 @@ export default function CheckoutSuccessPage() {
     }
   }
 
-  // ─── スリップ画像選択 ────────────────────────────────────
   function handleSlipChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -79,32 +114,6 @@ export default function CheckoutSuccessPage() {
     }
 
     setUploaded(true);
-  }
-
-  function CopyButton({ value, label }: { value: string; label: string }) {
-    const isCopied = copied === label;
-    return (
-      <button
-        onClick={() => copyToClipboard(value, label)}
-        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all active:scale-95 shrink-0 ${
-          isCopied
-            ? "bg-green-100 text-green-600"
-            : "bg-amber-100 text-amber-700 hover:bg-amber-200"
-        }`}
-      >
-        {isCopied ? (
-          <>
-            <Check size={14} />
-            {T.copied.ja}
-          </>
-        ) : (
-          <>
-            <Copy size={14} />
-            {T.copy.ja}
-          </>
-        )}
-      </button>
-    );
   }
 
   return (
@@ -154,7 +163,7 @@ export default function CheckoutSuccessPage() {
                     </p>
                   )}
                 </div>
-                <CopyButton value={BANK_INFO.accountName} label="name" />
+                <CopyButton value={BANK_INFO.accountName} label="name" copied={copied} onCopy={copyToClipboard} />
               </div>
               <div className="flex items-center justify-between gap-2">
                 <div>
@@ -163,7 +172,7 @@ export default function CheckoutSuccessPage() {
                   </p>
                   <p className="text-gray-800 font-bold text-lg tracking-wider mt-0.5">{BANK_INFO.accountNumber}</p>
                 </div>
-                <CopyButton value={BANK_INFO.accountNumber} label="number" />
+                <CopyButton value={BANK_INFO.accountNumber} label="number" copied={copied} onCopy={copyToClipboard} />
               </div>
             </div>
           </div>
@@ -179,14 +188,29 @@ export default function CheckoutSuccessPage() {
             </div>
             <div className="p-4 flex flex-col items-center">
               <div className="w-[224px] h-[224px] rounded-xl overflow-hidden bg-gray-50 flex items-center justify-center">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={BANK_INFO.promptPayQrPath}
-                  alt="PromptPay QR"
-                  width={224}
-                  height={224}
-                  className="max-w-full max-h-full object-contain"
-                />
+                {qrImageError ? (
+                  <p className="text-gray-500 text-sm text-center px-2">
+                    QRコード画像がありません。public フォルダに promptpay-qr.png または promptpay-qr.jpg を配置してください。
+                  </p>
+                ) : (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={qrTriedFallback && "promptPayQrPathFallback" in BANK_INFO ? BANK_INFO.promptPayQrPathFallback : BANK_INFO.promptPayQrPath}
+                      alt="PromptPay QR"
+                      width={224}
+                      height={224}
+                      className="max-w-full max-h-full object-contain"
+                      onError={() => {
+                        if (!qrTriedFallback && "promptPayQrPathFallback" in BANK_INFO && BANK_INFO.promptPayQrPathFallback) {
+                          setQrTriedFallback(true);
+                        } else {
+                          setQrImageError(true);
+                        }
+                      }}
+                    />
+                  </>
+                )}
               </div>
               {"accountNameTH" in BANK_INFO && (
                 <p className="text-gray-500 text-sm mt-2" lang="th">

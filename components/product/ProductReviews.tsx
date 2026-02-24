@@ -78,7 +78,7 @@ export default function ProductReviews({ productId, productName }: Props) {
   }, [productId, fetched]);
 
   useEffect(() => {
-    if (open && !fetched) fetchReviews();
+    if (open && !fetched) queueMicrotask(() => fetchReviews());
   }, [open, fetched, fetchReviews]);
 
   const avg =

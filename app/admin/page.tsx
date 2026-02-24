@@ -127,7 +127,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     const saved = typeof window !== "undefined" ? localStorage.getItem(PIN_STORAGE_KEY) : null;
-    setUnlocked(saved === "1");
+    queueMicrotask(() => setUnlocked(saved === "1"));
   }, []);
 
   const fetchOrders = useCallback(async () => {
@@ -160,8 +160,10 @@ export default function AdminPage() {
   }, []);
 
   useEffect(() => {
-    if (unlocked) fetchOrders();
-    else setLoading(false);
+    queueMicrotask(() => {
+      if (unlocked) fetchOrders();
+      else setLoading(false);
+    });
   }, [unlocked, fetchOrders]);
 
   function handlePinSubmit(e: React.FormEvent) {

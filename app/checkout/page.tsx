@@ -90,15 +90,6 @@ function getOrCreateGuestUserId(): string {
   return created;
 }
 
-function formatDbError(err: SupabaseLikeError | null | undefined, fallback: string): string {
-  if (!err) return fallback;
-  const code = err.code ? `[${err.code}] ` : "";
-  const msg = err.message ?? fallback;
-  const details = err.details ? ` / ${err.details}` : "";
-  const hint = err.hint ? ` / hint: ${err.hint}` : "";
-  return `${code}${msg}${details}${hint}`;
-}
-
 function Field({
   icon: Icon,
   label,
