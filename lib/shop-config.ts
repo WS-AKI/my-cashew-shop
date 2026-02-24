@@ -35,6 +35,10 @@ export const SHOP_TEXT = {
     cartEmpty: { ja: "カートが空です", th: "ตะกร้าว่าง" },
     cartEmptyHint: { ja: "商品をカートに入れてからお進みください。", th: "กรุณาเพิ่มสินค้าในตะกร้าก่อน" },
     shipping: { ja: "送料", th: "ค่าขนส่ง" },
+    /** 大きく表示する用 */
+    shippingBasic50: { ja: "送料は基本的に50バーツ", th: "ค่าขนส่งปกติ 50 บาท" },
+    shippingFreeOver1000: { ja: "1000バーツ以上で送料無料", th: "ซื้อครบ 1,000 บาท ส่งฟรี" },
+    shippingFree: { ja: "送料無料", th: "ส่งฟรี" },
   },
   orderSuccess: {
     /** Before slip upload */
@@ -108,20 +112,24 @@ export const BANK_INFO = {
   promptPayQrPathFallback: "/promptpay-qr.png",
 } as const;
 
+/** 送料無料になる小計（割引後）の閾値（バーツ） */
+export const FREE_SHIPPING_THRESHOLD_BAHT = 1000;
+
+/** 1000未満のときの送料（バーツ） */
+export const DEFAULT_SHIPPING_FEE_BAHT = 50;
+
 /**
- * 送料計算（重量ベース）
- * 1kgまで: 50฿、2kg: 60฿、3kg: 70฿、4kg: 80฿、5kg: 90฿… 以降1kgごとに+10฿
+ * 送料計算（小計ベース）
+ * 小計が1000バーツ未満 → 50฿、1000バーツ以上 → 0฿
  */
-export function getShippingFeeBaht(weightGrams: number): number {
-  const kg = weightGrams / 1000;
-  if (kg <= 1) return 50;
-  return 50 + 10 * (Math.ceil(kg) - 1);
+export function getShippingFeeBaht(subtotalBaht: number): number {
+  return subtotalBaht >= FREE_SHIPPING_THRESHOLD_BAHT ? 0 : DEFAULT_SHIPPING_FEE_BAHT;
 }
 
 /** 送料表示用テキスト（送料ページ・チェックアウトで使用） */
 export const SHIPPING_DESCRIPTION = {
-  ja: "1kgまでは50バーツ、2kgで60バーツ、3kgで70バーツ。以降は1kgごとに10バーツ加算されます。",
-  th: "ถึง 1kg 50 บาท, 2kg 60 บาท, 3kg 70 บาท หลังจากนั้น +10 บาท ต่อ 1kg",
+  ja: "1000バーツ未満は送料50バーツ。1000バーツ以上のお買い上げで送料無料です。",
+  th: "ยอดต่ำกว่า 1,000 บาท ค่าขนส่ง 50 บาท ซื้อครบ 1,000 บาท ส่งฟรี",
 } as const;
 
 /** 公式LINEアカウントのURL（お問い合わせ用）。Vercel/環境変数で NEXT_PUBLIC_LINE_OFFICIAL_URL を設定可能。 */

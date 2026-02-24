@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Truck, Package, Clock } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { SHIPPING_DESCRIPTION } from "@/lib/shop-config";
+import { SHIPPING_DESCRIPTION, SHOP_TEXT } from "@/lib/shop-config";
 
 export default function ShippingPage() {
   return (
@@ -19,13 +19,21 @@ export default function ShippingPage() {
 
         <section className="space-y-6">
           <div className="bg-white rounded-2xl border border-amber-100 p-6">
-            <div className="flex items-center gap-3 mb-3">
+            <div className="flex items-center gap-3 mb-4">
               <Truck size={24} className="text-amber-500" />
               <h2 className="font-bold text-amber-950">送料</h2>
             </div>
-            <p className="text-gray-600 text-sm leading-relaxed">
-              {SHIPPING_DESCRIPTION.ja}
-              会計時に重量に応じて自動で加算されます。
+            <p className="text-amber-900 font-bold text-xl text-center py-3 mb-3 bg-amber-50 rounded-xl border border-amber-200">
+              {SHOP_TEXT.checkout.shippingBasic50.ja}
+            </p>
+            <p className="text-amber-700 font-medium text-center mb-3">
+              {SHOP_TEXT.checkout.shippingFreeOver1000.ja}
+            </p>
+            <p className="text-gray-500 text-sm text-center" lang="th">
+              {SHOP_TEXT.checkout.shippingBasic50.th} · {SHOP_TEXT.checkout.shippingFreeOver1000.th}
+            </p>
+            <p className="text-gray-600 text-sm leading-relaxed mt-4">
+              {SHIPPING_DESCRIPTION.ja} 会計時に自動で適用されます。
             </p>
             <p className="text-gray-500 text-xs mt-2" lang="th">
               {SHIPPING_DESCRIPTION.th} — คำนวณอัตโนมัติตอนชำระเงิน

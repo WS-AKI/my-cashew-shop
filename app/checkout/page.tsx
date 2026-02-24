@@ -122,11 +122,7 @@ export default function CheckoutPage() {
   const { items, subtotal, discountRate, discountAmount, total, nextDiscountStep, clearCart } =
     useCart();
 
-  const totalWeightG = items.reduce(
-    (sum, item) => sum + (item.product.weight_g ?? 0) * item.quantity,
-    0
-  );
-  const shippingFee = getShippingFeeBaht(totalWeightG);
+  const shippingFee = getShippingFeeBaht(total);
   const totalWithShipping = total + shippingFee;
 
   const [form, setForm] = useState<CheckoutForm>(INITIAL_FORM);
@@ -490,12 +486,21 @@ export default function CheckoutPage() {
                 <span>−฿{discountAmount.toLocaleString()}</span>
               </div>
             )}
+            <div className="rounded-xl bg-amber-100/80 border border-amber-200 px-3 py-2 my-2">
+              <p className="text-amber-900 font-bold text-center text-lg">
+                <DualLanguageLabel primary={T.shippingBasic50.ja} secondary={T.shippingBasic50.th} />
+              </p>
+              <p className="text-amber-700 text-sm text-center mt-0.5">
+                <DualLanguageLabel primary={T.shippingFreeOver1000.ja} secondary={T.shippingFreeOver1000.th} />
+              </p>
+            </div>
             <div className="flex justify-between text-sm text-gray-600">
               <span>
-                <DualLanguageLabel primary={T.shipping.ja} secondary={T.shipping.th} />
-                <span className="text-gray-400 text-xs ml-1">
-                  (～{(totalWeightG / 1000).toFixed(1)}kg)
-                </span>
+                {shippingFee === 0 ? (
+                  <DualLanguageLabel primary={T.shippingFree.ja} secondary={T.shippingFree.th} />
+                ) : (
+                  <DualLanguageLabel primary={T.shipping.ja} secondary={T.shipping.th} />
+                )}
               </span>
               <span>฿{shippingFee.toLocaleString()}</span>
             </div>
