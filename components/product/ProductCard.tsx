@@ -31,7 +31,8 @@ export default function ProductCard({ product }: Props) {
   const variants = getVariants(product);
   const hasVariants = !product.is_set && variants.length > 0;
   const isSet = product.is_set;
-  const setBagCount = product.set_quantity ?? 0;
+  /** 詰め合わせで set_quantity が未設定のときは 1 袋として扱い、味選択・カート追加を可能にする */
+  const setBagCount = isSet ? (product.set_quantity ?? 0) || 1 : 0;
 
   const [selectedSize, setSelectedSize] = useState<number | null>(
     hasVariants ? variants[0].size_g : null

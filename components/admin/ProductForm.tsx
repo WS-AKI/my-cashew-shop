@@ -393,6 +393,8 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
 
     if (form.is_set) {
       if (isNaN(basePrice) || basePrice <= 0) { setError("セット商品の定価を入力してください"); return; }
+      const setQty = form.set_quantity.trim() ? Math.floor(Number(form.set_quantity)) : 0;
+      if (setQty <= 0) { setError("セット内の袋数を入力してください（1以上）"); return; }
     } else if (!hasVariantPrices) {
       setError("少なくとも1つのサイズに価格を入力してください"); return;
     }
