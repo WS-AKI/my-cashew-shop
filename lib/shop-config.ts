@@ -132,7 +132,15 @@ export const SHIPPING_DESCRIPTION = {
   th: "ยอดต่ำกว่า 1,000 บาท ค่าขนส่ง 50 บาท ซื้อครบ 1,000 บาท ส่งฟรี",
 } as const;
 
-/** 公式LINEアカウントのURL（お問い合わせ用）。Vercel/環境変数で NEXT_PUBLIC_LINE_OFFICIAL_URL を設定可能。 */
+/** サイトの絶対URL（sitemap.xml 等で使用）。本番では NEXT_PUBLIC_SITE_URL を設定すること。 */
+export const SITE_URL =
+  (typeof process !== "undefined" && process.env.NEXT_PUBLIC_SITE_URL?.trim()) ||
+  "https://example.com";
+
+/** 公式LINEアカウントのURL（お問い合わせ用）。Cloudflare の環境変数で NEXT_PUBLIC_LINE_OFFICIAL_URL を設定可能。 */
 export const LINE_OFFICIAL_URL =
   (typeof process !== "undefined" && process.env.NEXT_PUBLIC_LINE_OFFICIAL_URL) ||
   "https://line.me";
+
+/** 公式LINEのQRコード画像（public 内のパス）。空なら非表示。 */
+export const LINE_OFFICIAL_QR_PATH = "/line-official-qr.png";

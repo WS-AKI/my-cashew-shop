@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
 
-/** ビルド時（prerender）では環境変数が無くても throw せずプレースホルダーでクライアントを返す。本番では Vercel 等で環境変数を設定すること。 */
+/** ビルド時（prerender）では環境変数が無くても throw せずプレースホルダーでクライアントを返す。本番では Cloudflare の環境変数を設定すること。 */
 export async function createClient() {
   const cookieStore = await cookies();
   const url = SUPABASE_URL || "https://placeholder.supabase.co";

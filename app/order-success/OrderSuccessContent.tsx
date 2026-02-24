@@ -207,6 +207,10 @@ export default function OrderSuccessContent() {
               <p className="text-xs text-gray-500 mb-2">
                 この番号を控えてください。注文状況の確認に必要です。
               </p>
+              <p className="text-amber-700 text-sm font-medium mb-2 flex items-center gap-1.5">
+                <Search size={14} />
+                注文後の状況は「<Link href="/track" className="underline hover:text-amber-800">注文状況の確認</Link>」ページでいつでもご確認いただけます。ヘッダー・フッターからもアクセスできます。
+              </p>
               <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-4 py-3 border border-gray-200">
                 <code className="flex-1 text-sm font-mono text-gray-800 break-all select-all">
                   {orderId}
@@ -347,12 +351,15 @@ export default function OrderSuccessContent() {
                 </div>
               )}
               {!slipUploaded && (
-                <div className="bg-orange-50 border border-orange-200 rounded-xl p-3">
+                <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 space-y-2">
                   <p className="text-orange-700 text-sm font-medium">
                     お振込後、スリップ（振込証明）をアップロードしてください。
                   </p>
-                  <p className="text-orange-500 text-xs mt-1">
+                  <p className="text-orange-500 text-xs">
                     กรุณาอัพโหลดสลิปหลังโอนเงิน เพื่อยืนยันการชำระเงิน
+                  </p>
+                  <p className="text-orange-600 text-xs font-medium pt-1 border-t border-orange-200/70">
+                    サイトからアップロードが難しい場合は、<strong>公式LINEでスリップの写真を送っていただくことも可能</strong>です。フッターの公式LINEからご連絡ください。
                   </p>
                 </div>
               )}

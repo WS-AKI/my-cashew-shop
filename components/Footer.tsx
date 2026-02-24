@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { LINE_OFFICIAL_URL } from "@/lib/shop-config";
+import Image from "next/image";
+import { LINE_OFFICIAL_URL, LINE_OFFICIAL_QR_PATH } from "@/lib/shop-config";
 
 export default function Footer() {
   return (
     <footer className="bg-amber-950 text-amber-200 pt-12 pb-8 mt-20">
       <div className="max-w-5xl mx-auto px-4 sm:px-6">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 mb-10">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 mb-10">
           {/* ブランド */}
           <div>
             <div className="flex items-center gap-2 mb-3">
@@ -51,6 +52,14 @@ export default function Footer() {
               </li>
               <li>
                 <Link
+                  href="/track"
+                  className="text-amber-300/70 hover:text-amber-300 transition-colors"
+                >
+                  注文状況の確認
+                </Link>
+              </li>
+              <li>
+                <Link
                   href="/checkout/success"
                   className="text-amber-300/70 hover:text-amber-300 transition-colors"
                 >
@@ -60,7 +69,7 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* インフォリンク */}
+          {/* インフォメーション */}
           <div>
             <h3 className="text-white font-semibold mb-3 text-sm uppercase tracking-widest">
               インフォメーション
@@ -82,17 +91,39 @@ export default function Footer() {
                   送料・お届けについて
                 </Link>
               </li>
-              <li>
-                <a
-                  href={LINE_OFFICIAL_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-amber-300/70 hover:text-amber-300 transition-colors"
-                >
-                  公式LINE
-                </a>
-              </li>
             </ul>
+          </div>
+
+          {/* 公式LINE（QR・スリップ案内） */}
+          <div>
+            <h3 className="text-white font-semibold mb-3 text-sm uppercase tracking-widest">
+              公式LINE
+            </h3>
+            {LINE_OFFICIAL_QR_PATH && (
+              <a
+                href={LINE_OFFICIAL_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 focus:ring-offset-amber-950 rounded-xl"
+                aria-label="公式LINEを開く"
+              >
+                <span className="relative block w-28 h-28 rounded-xl overflow-hidden bg-white border-2 border-amber-600/50 shadow-md">
+                  <Image
+                    src={LINE_OFFICIAL_QR_PATH}
+                    alt="公式LINE 友だち追加用QRコード"
+                    fill
+                    sizes="112px"
+                    className="object-contain"
+                  />
+                </span>
+              </a>
+            )}
+            <p className="text-amber-300/80 text-sm mt-2 mb-1">
+              お問い合わせはLINEでどうぞ。
+            </p>
+            <p className="text-amber-400/90 text-xs leading-relaxed">
+              銀行のスリップを送る時は、サイトからアップロードのほか、<strong className="text-amber-300">LINEで写真を送っていただくことも可能</strong>です。
+            </p>
           </div>
         </div>
 
