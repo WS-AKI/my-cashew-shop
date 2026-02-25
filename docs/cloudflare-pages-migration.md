@@ -53,3 +53,7 @@ npm install --save-dev wrangler@latest
 - **Edge Runtime**（`export const runtime = "edge"`）は OpenNext Cloudflare では未対応のため、使用している場合は削除してください。このプロジェクトでは未使用です。
 - 画像最適化は `wrangler.jsonc` の `images.binding` で有効にしています（必要に応じて R2 等をバインド可能。公式 Howto 参照）。
 - キャッシュを R2 で行う場合は、[OpenNext の Caching ドキュメント](https://opennext.js.org/cloudflare/caching) を参照し、`open-next.config.ts` と `wrangler.jsonc` に R2 バインディングを追加します。
+
+## 公式LINEのQR画像を差し替える
+
+フッターで表示している公式LINEのQRは `public/line-official-qr.png` です。新しいQRに差し替える場合は、このファイルを新しい画像で**上書き保存**（ファイル名は `line-official-qr.png` のまま）し、コミット・プッシュしてください。
