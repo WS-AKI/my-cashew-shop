@@ -288,7 +288,7 @@ export default function OrderSuccessContent() {
           </div>
         </section>
 
-        {/* PromptPay QR（public の画像を img で表示して確実に表示） */}
+        {/* PromptPay QR + 請求金額 */}
         {BANK_INFO.promptPayQrPath && (
           <section className="bg-white rounded-2xl shadow-sm border border-amber-100 overflow-hidden">
             <div className="bg-amber-500 px-4 py-3 flex items-center gap-2">
@@ -296,7 +296,21 @@ export default function OrderSuccessContent() {
                 <DualLanguageLabel primary={T.promptPay.ja} secondary={T.promptPay.th} className="text-white" secondaryClassName="text-white/80 text-xs" />
               </span>
             </div>
-            <div className="p-4 flex flex-col items-center">
+            <div className="p-4 flex flex-col items-center gap-3">
+              {/* 請求金額を目立たせる */}
+              {orderTotal != null && (
+                <div className="w-full bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-center">
+                  <p className="text-xs text-amber-700 font-medium">
+                    <DualLanguageLabel primary={T.orderTotalLabel.ja} secondary={T.orderTotalLabel.th} />
+                  </p>
+                  <p className="text-2xl font-extrabold text-amber-600 mt-0.5">฿{orderTotal.toLocaleString()}</p>
+                  <p className="text-xs text-amber-600 mt-1">
+                    スキャン後、この金額を入力してください
+                    <span className="block text-amber-500" lang="th">สแกนแล้วกรอกจำนวนนี้</span>
+                  </p>
+                </div>
+              )}
+              {/* 静的QR画像（オームシン マーチャントQR） */}
               <div className="w-[224px] h-[224px] rounded-xl overflow-hidden bg-gray-50 flex items-center justify-center">
                 {qrImageError ? (
                   <p className="text-gray-500 text-sm text-center px-2">
@@ -323,7 +337,7 @@ export default function OrderSuccessContent() {
                 )}
               </div>
               {"accountNameTH" in BANK_INFO && (
-                <p className="text-gray-500 text-sm mt-2" lang="th">
+                <p className="text-gray-500 text-sm" lang="th">
                   {BANK_INFO.accountNameTH}
                 </p>
               )}

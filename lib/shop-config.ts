@@ -101,11 +101,11 @@ export const SHOP_TEXT = {
 } as const;
 
 export const BANK_INFO = {
-  bankName: "Kasikornbank (ธนาคารกสิกรไทย)",
+  bankName: "Government Savings Bank (ธนาคารออมสิน)",
   accountName: "CHIRAPHON KHEHALUN",
   /** Thai name exactly as shown in the PromptPay QR image (for verification) */
   accountNameTH: "น.ส. จิราพร เคหะลูน",
-  accountNumber: "004-3-70237-8",
+  accountNumber: "020-4-57390-910",
   /** Path to PromptPay QR image in /public. 実際のファイルに合わせて .png または .jpg を指定。 */
   promptPayQrPath: "/promptpay-qr.jpg",
   /** Optional fallback when main path fails to load. */
@@ -144,3 +144,15 @@ export const LINE_OFFICIAL_URL =
 
 /** 公式LINEのQRコード画像（public 内のパス）。空なら非表示。 */
 export const LINE_OFFICIAL_QR_PATH = "/line-official-qr.png";
+
+/**
+ * PromptPayに紐づくID（電話番号・口座番号・National IDなど）。
+ * 金額入りQRコード生成に使用。環境変数 NEXT_PUBLIC_PROMPTPAY_ID で上書き可能。
+ * 例: オームシン銀行口座ベースの場合は "020457390910"
+ */
+export function getPromptPayId(): string {
+  const id =
+    (typeof process !== "undefined" && process.env.NEXT_PUBLIC_PROMPTPAY_ID?.trim()) ||
+    "";
+  return id || "020457390910";
+}

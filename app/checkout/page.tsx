@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, useEffect, FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -54,6 +54,44 @@ const INITIAL_FORM: CheckoutForm = {
   postalCode: "",
   note: "",
 };
+
+const CHECKOUT_FORM_STORAGE_KEY = "cashew-checkout-form";
+
+function isCheckoutFormShape(obj: unknown): obj is CheckoutForm {
+  if (!obj || typeof obj !== "object") return false;
+  const o = obj as Record<string, unknown>;
+  return (
+    typeof o.name === "string" &&
+    typeof o.phone === "string" &&
+    typeof o.areaDistrict === "string" &&
+    typeof o.condominium === "string" &&
+    typeof o.roomNumber === "string" &&
+    typeof o.postalCode === "string" &&
+    typeof o.note === "string"
+  );
+}
+
+function getSavedCheckoutForm(): CheckoutForm | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(CHECKOUT_FORM_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as unknown;
+    if (!isCheckoutFormShape(parsed)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function saveCheckoutFormToStorage(form: CheckoutForm): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(CHECKOUT_FORM_STORAGE_KEY, JSON.stringify(form));
+  } catch {
+    // ignore
+  }
+}
 
 /** 地区名＋区名をセットにした1つのリスト（1回のドロップダウンで選択） */
 const AREA_DISTRICT_OPTIONS = [
@@ -128,6 +166,11 @@ export default function CheckoutPage() {
   const [form, setForm] = useState<CheckoutForm>(INITIAL_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const saved = getSavedCheckoutForm();
+    if (saved) setForm(saved);
+  }, []);
 
   if (items.length === 0) {
     return (
@@ -363,6 +406,19 @@ export default function CheckoutPage() {
         console.error("order_items skipped because orders insert failed (debug bypass)");
       }
 
+      if (orderId) {
+        fetch("/api/notify-order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            order_id: orderId,
+            customer_name: trimmedName,
+            total_amount: totalWithShipping,
+          }),
+        }).catch(() => {});
+      }
+
+      saveCheckoutFormToStorage(form);
       clearCart();
       router.push(orderId ? `/order-success?order=${orderId}` : "/order-success");
     } catch (err) {

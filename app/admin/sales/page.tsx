@@ -191,6 +191,7 @@ export default function AdminSalesPage() {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<Period>("all");
+  const [savingProductId, setSavingProductId] = useState<string | null>(null);
 
   useEffect(() => {
     const saved =
@@ -249,6 +250,27 @@ export default function AdminSalesPage() {
       setPinInput("");
     } else {
       setPinError("รหัสผ่านไม่ถูกต้อง");
+    }
+  }
+
+  async function updateThaiPrice(productId: string, rawValue: string) {
+    const trimmed = rawValue.trim();
+    const value =
+      trimmed === "" ? null : Math.floor(Number(trimmed)) || null;
+    setSavingProductId(productId);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("products")
+        .update({ thai_price: value })
+        .eq("id", productId);
+      if (error) throw error;
+      await fetchOrders();
+    } catch {
+      // 保存失敗時はリフレッシュで元に戻る
+      await fetchOrders();
+    } finally {
+      setSavingProductId(null);
     }
   }
 
@@ -490,10 +512,30 @@ export default function AdminSalesPage() {
                               "—"
                             )}
                           </td>
-                          <td className="px-4 py-3 text-right tabular-nums text-slate-600">
-                            {r.thai_price != null
-                              ? `฿${r.thai_price.toLocaleString()}`
-                              : "—"}
+                          <td className="px-4 py-2 text-right align-middle">
+                            {savingProductId === r.product_id ? (
+                              <span className="inline-flex items-center gap-1 text-slate-500">
+                                <Loader2 size={14} className="animate-spin" />
+                                保存中
+                              </span>
+                            ) : (
+                              <input
+                                type="number"
+                                min={0}
+                                step={1}
+                                placeholder="—"
+                                defaultValue={r.thai_price != null ? String(r.thai_price) : ""}
+                                onBlur={(e) =>
+                                  updateThaiPrice(r.product_id, e.currentTarget.value)
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.currentTarget.blur();
+                                  }
+                                }}
+                                className="w-20 text-right tabular-nums border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent"
+                              />
+                            )}
                           </td>
                           <td className="px-4 py-3 text-right tabular-nums text-slate-600">
                             {r.revenue_if_thai > 0
