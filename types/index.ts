@@ -70,6 +70,8 @@ export type PriceVariant = {
   price: number;
   sale_price?: number;
   image_url?: string;
+  /** 売上ページで入力するタイ人向け価格（比較用）。未入力は null。 */
+  thai_price?: number | null;
 };
 
 export type Product = {

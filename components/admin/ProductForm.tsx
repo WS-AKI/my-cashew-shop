@@ -48,7 +48,6 @@ type FormData = {
   weight_g: string;
   is_set: boolean;
   set_quantity: string;
-  thai_price: string;
   sizePrices: SizePrices;
   sizeSalePrices: SizePrices;
   sizeImages: SizeImageUrls;
@@ -94,7 +93,7 @@ function buildInitialForm(product?: Product): FormData {
       description_ja: "", description_th: "",
       price: "", sale_price: "", stock: "0", display_order: "0",
       is_active: true, is_promotion: false,
-      flavor_color: "", weight_g: "", is_set: false, set_quantity: "", thai_price: "",
+      flavor_color: "", weight_g: "", is_set: false, set_quantity: "",
       sizePrices: buildInitialSizePrices(),
       sizeSalePrices: buildInitialSizeSalePrices(),
       sizeImages: buildInitialSizeImages(),
@@ -115,7 +114,6 @@ function buildInitialForm(product?: Product): FormData {
     weight_g: product.weight_g ? String(product.weight_g) : "",
     is_set: product.is_set,
     set_quantity: product.set_quantity ? String(product.set_quantity) : "",
-    thai_price: product.thai_price != null ? String(product.thai_price) : "",
     sizePrices: buildInitialSizePrices(product.price_variants),
     sizeSalePrices: buildInitialSizeSalePrices(product.price_variants),
     sizeImages: buildInitialSizeImages(product.price_variants),
@@ -434,7 +432,6 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       weight_g: form.weight_g ? Math.floor(Number(form.weight_g)) : 0,
       is_set: form.is_set,
       set_quantity: form.is_set && form.set_quantity ? Math.floor(Number(form.set_quantity)) : null,
-      thai_price: form.thai_price.trim() ? Math.floor(Number(form.thai_price)) || null : null,
       price_variants: finalVariants,
       gallery_urls: galleryUrls,
     };
@@ -662,21 +659,6 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
               </div>
             </div>
           )}
-        </div>
-
-        {/* タイ人向け価格（比較用） */}
-        <div className="rounded-xl border-2 border-amber-200 bg-amber-50/50 p-4">
-          <Label icon={BarChart2} color="text-amber-700">タイ人向け価格（比較用）</Label>
-          <p className="text-xs text-amber-700/80 mb-2">売上ダッシュボードで「旧価格で売っていた場合との増益」を出すために使用。未入力なら比較対象外。</p>
-          <Input
-            type="number"
-            value={form.thai_price}
-            onChange={(e) => setForm({ ...form, thai_price: e.target.value })}
-            placeholder="例: 120（バーツ）"
-            min="0"
-            step="1"
-            ring="focus:ring-amber-400"
-          />
         </div>
 
         {/* Size-based pricing (non-set only) */}

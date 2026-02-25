@@ -380,7 +380,11 @@ export default function AdminPage() {
                           item.products?.name_ja ||
                           item.products?.name_th ||
                           `#${item.product_id.slice(0, 6)}`;
-                        const weightLabel = item.products?.weight_g ? `${item.products.weight_g}g` : "";
+                        const sizeG =
+                          (item.meta?.selected_size_g as number | null | undefined) ??
+                          item.products?.weight_g ??
+                          null;
+                        const weightLabel = sizeG ? `${sizeG}g` : "";
                         const lineUnitPrice = item.unit_price ?? item.price ?? 0;
                         const flavorStr = formatMetaFlavors(item.meta);
                         return (

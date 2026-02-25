@@ -341,6 +341,7 @@ export default function CheckoutPage() {
           const meta: Record<string, unknown> = {};
           if (hasFlavors && flavorsObj) meta.flavors = flavorsObj;
           if (item.saltOption) meta.salt_option = item.saltOption;
+          if (item.selectedSizeG != null) meta.selected_size_g = item.selectedSizeG;
           return {
             order_id: orderId,
             product_id: item.product.id,

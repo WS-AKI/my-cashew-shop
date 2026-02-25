@@ -32,11 +32,20 @@ import {
 const ADMIN_PIN = "607051";
 const PIN_STORAGE_KEY = "admin-unlocked";
 
+type PriceVariantRow = {
+  size_g: number;
+  price: number;
+  sale_price?: number;
+  thai_price?: number | null;
+};
+
 type ProductRow = {
   id: string;
   name_ja?: string | null;
   name_th?: string | null;
+  weight_g?: number | null;
   thai_price?: number | null;
+  price_variants?: PriceVariantRow[] | null;
 };
 
 type OrderItemRow = {
@@ -44,6 +53,8 @@ type OrderItemRow = {
   quantity: number;
   unit_price?: number | null;
   price?: number | null;
+  price_at_purchase?: number | null;
+  meta?: { selected_size_g?: number | null; [key: string]: unknown } | null;
   products?: ProductRow | null;
 };
 
@@ -97,7 +108,10 @@ function filterOrdersByPeriod(orders: OrderRow[], period: Period): OrderRow[] {
 }
 
 type ProductAgg = {
+  /** "${product_id}::${size_g ?? ""}" */
+  key: string;
   product_id: string;
+  size_g: number | null;
   name: string;
   quantity: number;
   revenue: number;
@@ -106,32 +120,72 @@ type ProductAgg = {
   gain: number;
 };
 
+/** order_item の選択サイズを取得。meta > unit_price から推定 > product.weight_g の順でフォールバック */
+function getSizeG(item: OrderItemRow): number | null {
+  const fromMeta = item.meta?.selected_size_g;
+  if (typeof fromMeta === "number") return fromMeta;
+
+  const unitPrice = item.unit_price ?? item.price ?? item.price_at_purchase ?? 0;
+  const variants = item.products?.price_variants;
+  if (variants?.length && unitPrice > 0) {
+    const match = variants.find(
+      (v) =>
+        (v.sale_price != null ? v.sale_price : v.price) === unitPrice ||
+        v.price === unitPrice
+    );
+    if (match) return match.size_g;
+  }
+
+  return item.products?.weight_g ?? null;
+}
+
 function aggregateByProduct(
   orders: OrderRow[],
   period: Period
 ): { rows: ProductAgg[]; totalRevenue: number; totalGain: number; orderCount: number } {
   const filtered = filterOrdersByPeriod(orders, period);
-  const map = new Map<
-    string,
-    { name: string; quantity: number; revenue: number; thai_price: number | null }
-  >();
+  type AggVal = {
+    name: string;
+    size_g: number | null;
+    quantity: number;
+    revenue: number;
+    thai_price: number | null;
+  };
+  const map = new Map<string, AggVal>();
 
   for (const order of filtered) {
     for (const item of order.order_items ?? []) {
       const pid = item.product_id;
-      const name =
+      const sizeG = getSizeG(item);
+      const aggKey = `${pid}::${sizeG ?? ""}`;
+
+      const baseName =
         item.products?.name_ja ||
         item.products?.name_th ||
         `#${pid.slice(0, 8)}`;
-      const unitPrice = item.unit_price ?? item.price ?? 0;
-      const revenue = item.quantity * unitPrice;
-      const thaiPrice =
-        item.products?.thai_price != null ? item.products.thai_price : null;
+      const name = sizeG != null ? `${baseName} ${sizeG}g` : baseName;
 
-      const cur = map.get(pid);
+      const unitPrice =
+        item.unit_price ?? item.price ?? item.price_at_purchase ?? 0;
+      const revenue = item.quantity * unitPrice;
+
+      // タイ価格: バリアント別 > 商品レベルの順で取得
+      let thaiPrice: number | null = null;
+      if (sizeG != null && item.products?.price_variants?.length) {
+        const variant = item.products.price_variants.find(
+          (v) => v.size_g === sizeG
+        );
+        thaiPrice = variant?.thai_price ?? null;
+      }
+      if (thaiPrice == null) {
+        thaiPrice = item.products?.thai_price ?? null;
+      }
+
+      const cur = map.get(aggKey);
       if (!cur) {
-        map.set(pid, {
+        map.set(aggKey, {
           name,
+          size_g: sizeG,
           quantity: item.quantity,
           revenue,
           thai_price: thaiPrice,
@@ -147,14 +201,17 @@ function aggregateByProduct(
   const rows: ProductAgg[] = [];
   let totalRevenue = 0;
   let totalGain = 0;
-  for (const [product_id, v] of map) {
+  for (const [aggKey, v] of map) {
+    const productId = aggKey.split("::")[0];
     const revenueIfThai =
       v.thai_price != null ? v.quantity * v.thai_price : 0;
     const gain = v.revenue - revenueIfThai;
     totalRevenue += v.revenue;
     totalGain += gain;
     rows.push({
-      product_id,
+      key: aggKey,
+      product_id: productId,
+      size_g: v.size_g,
       name: v.name,
       quantity: v.quantity,
       revenue: v.revenue,
@@ -165,12 +222,7 @@ function aggregateByProduct(
   }
   rows.sort((a, b) => b.revenue - a.revenue);
 
-  return {
-    rows,
-    totalRevenue,
-    totalGain,
-    orderCount: filtered.length,
-  };
+  return { rows, totalRevenue, totalGain, orderCount: filtered.length };
 }
 
 const CHART_COLORS = [
@@ -190,8 +242,9 @@ export default function AdminSalesPage() {
   const [pinError, setPinError] = useState("");
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [period, setPeriod] = useState<Period>("all");
-  const [savingProductId, setSavingProductId] = useState<string | null>(null);
+  const [savingKey, setSavingKey] = useState<string | null>(null);
 
   useEffect(() => {
     const saved =
@@ -200,6 +253,7 @@ export default function AdminSalesPage() {
   }, []);
 
   const fetchOrders = useCallback(async () => {
+    setFetchError(null);
     const supabase = createClient();
     const { data, error } = await supabase
       .from("orders")
@@ -213,11 +267,15 @@ export default function AdminSalesPage() {
           quantity,
           unit_price,
           price,
+          price_at_purchase,
+          meta,
           products (
             id,
             name_ja,
             name_th,
-            thai_price
+            weight_g,
+            thai_price,
+            price_variants
           )
         )
       `
@@ -226,6 +284,8 @@ export default function AdminSalesPage() {
 
     if (error) {
       setOrders([]);
+      setFetchError(error.message || "データの取得に失敗しました");
+      console.error("Sales fetch error:", error);
     } else {
       const raw: unknown = data ?? [];
       setOrders(normalizeOrders(raw as RawOrderRow[]));
@@ -253,24 +313,48 @@ export default function AdminSalesPage() {
     }
   }
 
-  async function updateThaiPrice(productId: string, rawValue: string) {
+  async function updateThaiPrice(
+    productId: string,
+    sizeG: number | null,
+    rawValue: string
+  ) {
     const trimmed = rawValue.trim();
-    const value =
-      trimmed === "" ? null : Math.floor(Number(trimmed)) || null;
-    setSavingProductId(productId);
+    const value = trimmed === "" ? null : Math.floor(Number(trimmed)) || null;
+    const key = `${productId}::${sizeG ?? ""}`;
+    setSavingKey(key);
     try {
       const supabase = createClient();
-      const { error } = await supabase
-        .from("products")
-        .update({ thai_price: value })
-        .eq("id", productId);
-      if (error) throw error;
+      if (sizeG != null) {
+        // バリアント別: price_variants JSONB の該当サイズを更新
+        const { data } = await supabase
+          .from("products")
+          .select("price_variants")
+          .eq("id", productId)
+          .single();
+        const variants: PriceVariantRow[] = Array.isArray(data?.price_variants)
+          ? (data.price_variants as PriceVariantRow[])
+          : [];
+        const updated = variants.map((v) =>
+          v.size_g === sizeG ? { ...v, thai_price: value } : v
+        );
+        const { error } = await supabase
+          .from("products")
+          .update({ price_variants: updated })
+          .eq("id", productId);
+        if (error) throw error;
+      } else {
+        // サイズなし（単一サイズ商品）: product レベルの thai_price を更新
+        const { error } = await supabase
+          .from("products")
+          .update({ thai_price: value })
+          .eq("id", productId);
+        if (error) throw error;
+      }
       await fetchOrders();
     } catch {
-      // 保存失敗時はリフレッシュで元に戻る
       await fetchOrders();
     } finally {
-      setSavingProductId(null);
+      setSavingKey(null);
     }
   }
 
@@ -393,6 +477,20 @@ export default function AdminSalesPage() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-6 space-y-8">
+        {fetchError && (
+          <div className="rounded-xl bg-red-50 border border-red-200 p-4 text-red-800 text-sm flex items-start gap-2">
+            <span className="font-medium">データの取得に失敗しました。</span>
+            <span className="flex-1">{fetchError}</span>
+            <button
+              type="button"
+              onClick={() => fetchOrders()}
+              className="shrink-0 px-3 py-1.5 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 font-medium"
+            >
+              再試行
+            </button>
+          </div>
+        )}
+
         {loading && (
           <div className="flex flex-col items-center justify-center py-24 text-slate-500">
             <Loader2 size={48} className="animate-spin text-emerald-500 mb-4" />
@@ -445,7 +543,7 @@ export default function AdminSalesPage() {
                 </div>
               </div>
               <p className="text-slate-500 text-xs mt-3">
-                増益＝サイト価格での売上 − タイ人向け価格で同数売った場合の売上。商品マスタで「タイ人向け価格」を入力したもののみ集計。
+                増益＝サイト価格での売上 − タイ人向け価格で同数売った場合の売上。下の表でサイズ別に「タイ価格」を入力すると集計されます。
               </p>
             </section>
 
@@ -481,7 +579,7 @@ export default function AdminSalesPage() {
                       const pct = totalRevenue > 0 ? (r.revenue / totalRevenue) * 100 : 0;
                       return (
                         <tr
-                          key={r.product_id}
+                          key={r.key}
                           className={`border-b border-slate-100 hover:bg-slate-50/80 ${
                             idx % 2 === 0 ? "bg-white" : "bg-slate-50/30"
                           }`}
@@ -513,7 +611,7 @@ export default function AdminSalesPage() {
                             )}
                           </td>
                           <td className="px-4 py-2 text-right align-middle">
-                            {savingProductId === r.product_id ? (
+                            {savingKey === r.key ? (
                               <span className="inline-flex items-center gap-1 text-slate-500">
                                 <Loader2 size={14} className="animate-spin" />
                                 保存中
@@ -526,7 +624,7 @@ export default function AdminSalesPage() {
                                 placeholder="—"
                                 defaultValue={r.thai_price != null ? String(r.thai_price) : ""}
                                 onBlur={(e) =>
-                                  updateThaiPrice(r.product_id, e.currentTarget.value)
+                                  updateThaiPrice(r.product_id, r.size_g, e.currentTarget.value)
                                 }
                                 onKeyDown={(e) => {
                                   if (e.key === "Enter") {
