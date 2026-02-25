@@ -2,6 +2,37 @@
 
 本プロジェクトは **Cloudflare** にデプロイする想定です。Next.js を **OpenNext の Cloudflare アダプター** で Cloudflare Workers / Pages で動かすための設定です（`@cloudflare/next-on-pages` は非推奨のため使用していません）。
 
+---
+
+## GitHub にプッシュしたら Cloudflare が自動で更新されるようにする
+
+1. [Cloudflare Dashboard](https://dash.cloudflare.com) にログイン
+2. **Workers & Pages** → **Create** → **Pages** → **Connect to Git**
+3. **GitHub** を選び、リポジトリ（例: `WS-AKI/my-cashew-shop`）とブランチ（例: `main`）を指定
+4. **Build configuration** で次を設定：
+   - **Framework preset**: None（または Next.js があれば選択）
+   - **Build command**: `npx opennextjs-cloudflare build`
+   - **Build output directory**: 空欄のまま（OpenNext が自動で出力先を扱います）
+5. **Environment variables** で本番用の変数（`NEXT_PUBLIC_SUPABASE_URL` など）を追加
+6. **Save** 後、以降は **main に push するたびに Cloudflare が自動でビルド・デプロイ**されます。
+
+※ 初回は「Deploy with Workers」のような案内が出る場合があります。その手順に従って Workers として接続すれば、同じく push で自動デプロイされます。
+
+---
+
+## Vercel と GitHub の連携を切る（Vercel を使わない場合）
+
+Vercel を使わない場合は、リポジトリとの連携を解除してください。
+
+1. [Vercel Dashboard](https://vercel.com/dashboard) にログイン
+2. 該当プロジェクト（my-cashew-shop など）を開く
+3. **Settings** → **Git** の項目へ
+4. **Disconnect**（Git リポジトリとの接続を解除）を実行
+
+これで、GitHub に push しても Vercel にはデプロイされません。Cloudflare 側で上記のとおり Git 連携をしていれば、push は Cloudflare にだけ反映されます。
+
+---
+
 ## 1. 必要なライブラリのインストール
 
 ```bash

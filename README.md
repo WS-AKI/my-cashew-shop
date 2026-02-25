@@ -31,6 +31,8 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 
 このプロジェクトは **Cloudflare Workers / Pages** でデプロイします。OpenNext の Cloudflare アダプターを使用しています。
 
-- デプロイ手順・ビルドコマンド: [docs/cloudflare-pages-migration.md](docs/cloudflare-pages-migration.md) を参照。
+- **GitHub に push したら Cloudflare を自動更新したい**: Cloudflare ダッシュボードで **Workers & Pages** → **Connect to Git** からこのリポジトリを接続してください。接続後は push のたびに自動でビルド・デプロイされます。
+- **Vercel は使わない**: Vercel ダッシュボードで該当プロジェクトの **Settings** → **Git** → **Disconnect** でリポジトリとの連携を解除してください。
+- 詳細な手順・ビルドコマンド: [docs/cloudflare-pages-migration.md](docs/cloudflare-pages-migration.md)
 - コマンドラインから: `npx wrangler login` のあと `npm run deploy`。
-- 環境変数（Supabase、LINE、サイトURL など）は Cloudflare ダッシュボードの **Workers & Pages** → 対象プロジェクト → **Settings** → **Environment variables** で設定してください。
+- 環境変数（Supabase、LINE、サイトURL など）は Cloudflare の **Workers & Pages** → 対象プロジェクト → **Settings** → **Environment variables** で設定してください。

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { LINE_OFFICIAL_URL, LINE_OFFICIAL_QR_PATH } from "@/lib/shop-config";
+import { LINE_OFFICIAL_QR_PATH } from "@/lib/shop-config";
 
 export default function Footer() {
   return (
@@ -94,32 +94,24 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* 公式LINE（QR・スリップ案内） */}
+          {/* 公式LINE（QRは画像のみ表示。読み取ると友だち追加に繋がる） */}
           <div>
             <h3 className="text-white font-semibold mb-3 text-sm uppercase tracking-widest">
               公式LINE
             </h3>
             {LINE_OFFICIAL_QR_PATH && (
-              <a
-                href={LINE_OFFICIAL_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 focus:ring-offset-amber-950 rounded-xl"
-                aria-label="公式LINEを開く"
-              >
-                <span className="relative block w-28 h-28 rounded-xl overflow-hidden bg-white border-2 border-amber-600/50 shadow-md">
-                  <Image
-                    src={LINE_OFFICIAL_QR_PATH}
-                    alt="公式LINE 友だち追加用QRコード"
-                    fill
-                    sizes="112px"
-                    className="object-contain"
-                  />
-                </span>
-              </a>
+              <span className="relative block w-28 h-28 rounded-xl overflow-hidden bg-white border-2 border-amber-600/50 shadow-md">
+                <Image
+                  src={LINE_OFFICIAL_QR_PATH}
+                  alt="公式LINE 友だち追加用QRコード（スマホで読み取ってください）"
+                  fill
+                  sizes="112px"
+                  className="object-contain"
+                />
+              </span>
             )}
             <p className="text-amber-300/80 text-sm mt-2 mb-1">
-              お問い合わせはLINEでどうぞ。
+              スマホでQRを読み取って友だち追加・お問い合わせ
             </p>
             <p className="text-amber-400/90 text-xs leading-relaxed">
               銀行のスリップを送る時は、サイトからアップロードのほか、<strong className="text-amber-300">LINEで写真を送っていただくことも可能</strong>です。
