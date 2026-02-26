@@ -4,6 +4,7 @@ import { ChevronRight, Leaf, Truck, ShieldCheck } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import HeroCarousel from "@/components/home/HeroCarousel";
+import HealthBenefitsSection from "@/components/home/HealthBenefitsSection";
 import ProductsGrid from "@/app/_components/ProductsGrid";
 import ProductsGridSkeleton from "@/app/_components/ProductsGridSkeleton";
 
@@ -93,6 +94,9 @@ export default function HomePage() {
             ))}
           </div>
         </section>
+
+        {/* ─── ターゲット別健康効果（Zパターン） ─────────────────── */}
+        <HealthBenefitsSection />
 
         {/* ─── 商品一覧セクション（Supabase 本番データ） ─────────── */}
         <section id="products" className="max-w-5xl mx-auto px-4 sm:px-6 py-16">
