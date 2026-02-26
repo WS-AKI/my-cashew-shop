@@ -61,6 +61,8 @@ type OrderItemRow = {
 type OrderRow = {
   id: string;
   total_amount: number;
+  shipping_fee?: number | null;
+  discount_amount?: number | null;
   created_at: string;
   order_items?: OrderItemRow[];
 };
@@ -126,14 +128,16 @@ function getSizeG(item: OrderItemRow): number | null {
   if (typeof fromMeta === "number") return fromMeta;
 
   const unitPrice = item.unit_price ?? item.price ?? item.price_at_purchase ?? 0;
-  const variants = item.products?.price_variants;
-  if (variants?.length && unitPrice > 0) {
+  const rawVariants = item.products?.price_variants;
+  const variants = Array.isArray(rawVariants) ? rawVariants : [];
+  if (variants.length > 0 && unitPrice > 0) {
     const match = variants.find(
-      (v) =>
-        (v.sale_price != null ? v.sale_price : v.price) === unitPrice ||
-        v.price === unitPrice
+      (v: { size_g?: number; price?: number; sale_price?: number }) =>
+        v &&
+        ((v.sale_price != null ? v.sale_price : v.price) === unitPrice ||
+          v.price === unitPrice)
     );
-    if (match) return match.size_g;
+    if (match && typeof match.size_g === "number") return match.size_g;
   }
 
   return item.products?.weight_g ?? null;
@@ -142,7 +146,14 @@ function getSizeG(item: OrderItemRow): number | null {
 function aggregateByProduct(
   orders: OrderRow[],
   period: Period
-): { rows: ProductAgg[]; totalRevenue: number; totalGain: number; orderCount: number } {
+): {
+  rows: ProductAgg[];
+  totalRevenue: number;
+  totalGain: number;
+  totalShipping: number;
+  totalDiscount: number;
+  orderCount: number;
+} {
   const filtered = filterOrdersByPeriod(orders, period);
   type AggVal = {
     name: string;
@@ -171,10 +182,9 @@ function aggregateByProduct(
 
       // タイ価格: バリアント別 > 商品レベルの順で取得
       let thaiPrice: number | null = null;
-      if (sizeG != null && item.products?.price_variants?.length) {
-        const variant = item.products.price_variants.find(
-          (v) => v.size_g === sizeG
-        );
+      const pv = item.products?.price_variants;
+      if (sizeG != null && Array.isArray(pv) && pv.length > 0) {
+        const variant = pv.find((v) => v && v.size_g === sizeG);
         thaiPrice = variant?.thai_price ?? null;
       }
       if (thaiPrice == null) {
@@ -222,7 +232,11 @@ function aggregateByProduct(
   }
   rows.sort((a, b) => b.revenue - a.revenue);
 
-  return { rows, totalRevenue, totalGain, orderCount: filtered.length };
+  // 送料・割引は注文単位で集計（商品明細とは別に orders から合算）
+  const totalShipping = filtered.reduce((s, o) => s + (o.shipping_fee ?? 0), 0);
+  const totalDiscount = filtered.reduce((s, o) => s + (o.discount_amount ?? 0), 0);
+
+  return { rows, totalRevenue, totalGain, totalShipping, totalDiscount, orderCount: filtered.length };
 }
 
 const CHART_COLORS = [
@@ -261,12 +275,13 @@ export default function AdminSalesPage() {
         `
         id,
         total_amount,
+        shipping_fee,
+        discount_amount,
         created_at,
         order_items (
           product_id,
           quantity,
           unit_price,
-          price,
           price_at_purchase,
           meta,
           products (
@@ -326,22 +341,32 @@ export default function AdminSalesPage() {
       const supabase = createClient();
       if (sizeG != null) {
         // バリアント別: price_variants JSONB の該当サイズを更新
-        const { data } = await supabase
+        const { data, error: fetchErr } = await supabase
           .from("products")
           .select("price_variants")
           .eq("id", productId)
           .single();
+        if (fetchErr) throw fetchErr;
         const variants: PriceVariantRow[] = Array.isArray(data?.price_variants)
           ? (data.price_variants as PriceVariantRow[])
           : [];
-        const updated = variants.map((v) =>
-          v.size_g === sizeG ? { ...v, thai_price: value } : v
-        );
-        const { error } = await supabase
-          .from("products")
-          .update({ price_variants: updated })
-          .eq("id", productId);
-        if (error) throw error;
+        // バリアントが無い場合は product レベルの thai_price だけ更新（空で上書きしない）
+        if (variants.length === 0) {
+          const { error } = await supabase
+            .from("products")
+            .update({ thai_price: value })
+            .eq("id", productId);
+          if (error) throw error;
+        } else {
+          const updated = variants.map((v) =>
+            v.size_g === sizeG ? { ...v, thai_price: value } : v
+          );
+          const { error } = await supabase
+            .from("products")
+            .update({ price_variants: updated })
+            .eq("id", productId);
+          if (error) throw error;
+        }
       } else {
         // サイズなし（単一サイズ商品）: product レベルの thai_price を更新
         const { error } = await supabase
@@ -351,19 +376,18 @@ export default function AdminSalesPage() {
         if (error) throw error;
       }
       await fetchOrders();
-    } catch {
+    } catch (err) {
+      console.error("updateThaiPrice failed", err);
       await fetchOrders();
     } finally {
       setSavingKey(null);
     }
   }
 
-  const { rows, totalRevenue, totalGain, orderCount } = aggregateByProduct(
-    orders,
-    period
-  );
+  const { rows, totalRevenue, totalGain, totalShipping, totalDiscount, orderCount } =
+    aggregateByProduct(orders, period);
   const avgOrderValue =
-    orderCount > 0 ? Math.round(totalRevenue / orderCount) : 0;
+    orderCount > 0 ? Math.round((totalRevenue + totalShipping - totalDiscount) / orderCount) : 0;
 
   const chartData = rows.slice(0, 10).map((r) => ({
     name: r.name.length > 12 ? r.name.slice(0, 12) + "…" : r.name,
@@ -374,43 +398,31 @@ export default function AdminSalesPage() {
 
   if (!unlocked) {
     return (
-      <div className="min-h-screen bg-emerald-50 flex flex-col items-center justify-center px-4">
-        <div className="w-full max-w-sm bg-white rounded-2xl shadow-lg border border-emerald-100 p-6">
-          <div className="flex justify-center mb-4">
-            <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
+        <div className="w-full max-w-sm bg-white rounded-2xl shadow-lg border border-slate-200 p-8">
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 rounded-2xl bg-emerald-100 flex items-center justify-center mx-auto mb-3">
               <Lock size={28} className="text-emerald-600" />
             </div>
+            <h1 className="text-xl font-bold text-slate-800">売上記録</h1>
+            <p className="text-slate-500 text-sm mt-1">ยอดขาย · PINで認証</p>
           </div>
-          <h1 className="text-xl font-bold text-gray-800 text-center mb-1">
-            ระบบจัดการร้านค้า
-          </h1>
-          <p className="text-gray-500 text-sm text-center mb-6">Shop Admin</p>
           <form onSubmit={handlePinSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                กรุณาใส่รหัสผ่าน
-              </label>
-              <input
-                type="password"
-                inputMode="numeric"
-                autoComplete="off"
-                value={pinInput}
-                onChange={(e) => {
-                  setPinInput(e.target.value);
-                  setPinError("");
-                }}
-                placeholder="••••••"
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-center text-lg tracking-widest focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              />
-            </div>
-            {pinError && (
-              <p className="text-red-600 text-sm text-center">{pinError}</p>
-            )}
+            <input
+              type="password"
+              inputMode="numeric"
+              autoComplete="off"
+              value={pinInput}
+              onChange={(e) => { setPinInput(e.target.value); setPinError(""); }}
+              placeholder="••••••"
+              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-center text-xl tracking-widest focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+            {pinError && <p className="text-red-500 text-sm text-center">{pinError}</p>}
             <button
               type="submit"
-              className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold"
+              className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold transition-colors"
             >
-              เข้าสู่ระบบ
+              確認 · เข้าสู่ระบบ
             </button>
           </form>
         </div>
@@ -419,82 +431,74 @@ export default function AdminSalesPage() {
   }
 
   const periodLabel =
-    period === "all" ? "全期間" : period === "this_month" ? "今月" : "先月";
+    period === "all" ? "全期間 · ทั้งหมด" : period === "this_month" ? "今月 · เดือนนี้" : "先月 · เดือนที่แล้ว";
 
   return (
     <div className="min-h-screen bg-slate-50 pb-12">
-      {/* ヘッダー */}
-      <header className="sticky top-0 z-10 bg-white border-b border-slate-200 shadow-sm">
-        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Link
-              href="/admin"
-              className="p-2 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-800 transition-colors"
-              aria-label="注文一覧へ"
-            >
-              <ChevronLeft size={22} />
-            </Link>
-            <div>
-              <h1 className="text-xl font-bold text-slate-800">売上記録表</h1>
-              <p className="text-slate-500 text-sm">Sales report · 商品別・期間別</p>
+      {/* ページタイトルバー */}
+      <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-4">
+        <div className="max-w-5xl mx-auto flex items-center justify-between gap-4">
+          <div>
+            <h1 className="font-bold text-slate-800 text-lg flex items-center gap-2">
+              <BarChart3 size={20} className="text-emerald-500" />
+              売上記録
+              <span className="text-slate-400 font-normal text-sm ml-1">· ยอดขาย</span>
+            </h1>
+            <p className="text-slate-500 text-xs mt-0.5">商品別・期間別レポート</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* 期間タブ */}
+            <div className="flex gap-1 p-1 bg-slate-100 rounded-xl">
+              {([
+                { value: "all" as Period, label: "全期間", labelTh: "ทั้งหมด" },
+                { value: "this_month" as Period, label: "今月", labelTh: "เดือนนี้" },
+                { value: "last_month" as Period, label: "先月", labelTh: "เดือนที่แล้ว" },
+              ] as const).map(({ value, label, labelTh }) => (
+                <button
+                  key={value}
+                  onClick={() => setPeriod(value)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    period === value ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  {label}
+                  <span className={`ml-0.5 hidden sm:inline ${period === value ? "text-emerald-500" : "text-slate-400"}`}>· {labelTh}</span>
+                </button>
+              ))}
             </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => fetchOrders()}
-            disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white text-sm font-medium transition-colors"
-          >
-            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-            {loading ? "読込中…" : "更新"}
-          </button>
-        </div>
-
-        {/* 期間タブ */}
-        <div className="max-w-5xl mx-auto px-4 pb-3">
-          <div className="flex gap-1 p-1 bg-slate-100 rounded-xl w-fit">
-            {(
-              [
-                { value: "all" as Period, label: "全期間" },
-                { value: "this_month" as Period, label: "今月" },
-                { value: "last_month" as Period, label: "先月" },
-              ] as const
-            ).map(({ value, label }) => (
-              <button
-                key={value}
-                onClick={() => setPeriod(value)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  period === value
-                    ? "bg-white text-emerald-700 shadow-sm"
-                    : "text-slate-600 hover:text-slate-800"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-5xl mx-auto px-4 py-6 space-y-8">
-        {fetchError && (
-          <div className="rounded-xl bg-red-50 border border-red-200 p-4 text-red-800 text-sm flex items-start gap-2">
-            <span className="font-medium">データの取得に失敗しました。</span>
-            <span className="flex-1">{fetchError}</span>
             <button
               type="button"
               onClick={() => fetchOrders()}
-              className="shrink-0 px-3 py-1.5 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 font-medium"
+              disabled={loading}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 text-sm font-medium transition-colors disabled:opacity-50"
             >
-              再試行
+              <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
+              更新
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+        {fetchError && (
+          <div className="rounded-xl bg-red-50 border border-red-200 p-4 text-red-800 text-sm flex items-center gap-2">
+            <span className="font-medium flex-1">
+              データ取得エラー · {fetchError}
+            </span>
+            <button
+              type="button"
+              onClick={() => fetchOrders()}
+              className="shrink-0 px-3 py-1.5 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 font-medium text-xs"
+            >
+              再試行 · ลองใหม่
             </button>
           </div>
         )}
 
         {loading && (
-          <div className="flex flex-col items-center justify-center py-24 text-slate-500">
-            <Loader2 size={48} className="animate-spin text-emerald-500 mb-4" />
-            <p className="text-sm">読み込み中…</p>
+          <div className="flex flex-col items-center justify-center py-24 text-slate-400">
+            <Loader2 size={40} className="animate-spin text-emerald-500 mb-3" />
+            <p className="text-sm">読み込み中… · กำลังโหลด</p>
           </div>
         )}
 
@@ -502,21 +506,22 @@ export default function AdminSalesPage() {
           <>
             {/* サマリカード 4枚 */}
             <section>
+              {/* 上段: 売上合計・注文数・平均客単価・増益 */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
                   <div className="flex items-center gap-2 text-slate-500 mb-2">
                     <DollarSign size={18} />
-                    <span className="text-xs font-medium uppercase tracking-wider">売上合計</span>
+                    <span className="text-xs font-medium uppercase tracking-wider">商品売上合計</span>
                   </div>
                   <p className="text-2xl font-bold text-slate-800 tabular-nums">
                     ฿{totalRevenue.toLocaleString()}
                   </p>
-                  <p className="text-slate-400 text-xs mt-1">{periodLabel}</p>
+                  <p className="text-slate-400 text-xs mt-1">送料・割引除く · {periodLabel}</p>
                 </div>
                 <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
                   <div className="flex items-center gap-2 text-slate-500 mb-2">
                     <ShoppingBag size={18} />
-                    <span className="text-xs font-medium uppercase tracking-wider">注文数</span>
+                    <span className="text-xs font-medium">注文数 · ออเดอร์</span>
                   </div>
                   <p className="text-2xl font-bold text-slate-800 tabular-nums">{orderCount}</p>
                   <p className="text-slate-400 text-xs mt-1">件</p>
@@ -524,7 +529,7 @@ export default function AdminSalesPage() {
                 <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
                   <div className="flex items-center gap-2 text-slate-500 mb-2">
                     <TrendingUp size={18} />
-                    <span className="text-xs font-medium uppercase tracking-wider">平均客単価</span>
+                    <span className="text-xs font-medium">平均客単価 · เฉลี่ย</span>
                   </div>
                   <p className="text-2xl font-bold text-slate-800 tabular-nums">
                     ฿{avgOrderValue.toLocaleString()}
@@ -534,12 +539,34 @@ export default function AdminSalesPage() {
                 <div className="bg-amber-50 rounded-2xl border border-amber-200/80 p-5 shadow-sm">
                   <div className="flex items-center gap-2 text-amber-700 mb-2">
                     <BarChart3 size={18} />
-                    <span className="text-xs font-medium uppercase tracking-wider">増益</span>
+                    <span className="text-xs font-medium">増益 · กำไรเพิ่ม</span>
                   </div>
                   <p className="text-2xl font-bold text-amber-900 tabular-nums">
                     +฿{totalGain.toLocaleString()}
                   </p>
                   <p className="text-amber-600/80 text-xs mt-1">タイ価格との差額</p>
+                </div>
+              </div>
+              {/* 下段: 送料合計・割引合計・総合計 */}
+              <div className="grid grid-cols-3 gap-3 mt-3">
+                <div className="bg-sky-50 rounded-xl border border-sky-200/80 p-4 shadow-sm">
+                  <p className="text-xs font-medium text-sky-600 mb-1">送料合計 · ค่าส่ง</p>
+                  <p className="text-xl font-bold text-sky-800 tabular-nums">
+                    ฿{totalShipping.toLocaleString()}
+                  </p>
+                </div>
+                <div className="bg-rose-50 rounded-xl border border-rose-200/80 p-4 shadow-sm">
+                  <p className="text-xs font-medium text-rose-600 mb-1">割引合計 · ส่วนลด</p>
+                  <p className="text-xl font-bold text-rose-700 tabular-nums">
+                    -฿{totalDiscount.toLocaleString()}
+                  </p>
+                </div>
+                <div className="bg-emerald-50 rounded-xl border border-emerald-200/80 p-4 shadow-sm">
+                  <p className="text-xs font-medium text-emerald-700 mb-1">総合計 · ยอดรวมทั้งหมด</p>
+                  <p className="text-xl font-bold text-emerald-800 tabular-nums">
+                    ฿{(totalRevenue + totalShipping - totalDiscount).toLocaleString()}
+                  </p>
+                  <p className="text-emerald-600/70 text-[10px] mt-0.5">商品 + 送料 − 割引</p>
                 </div>
               </div>
               <p className="text-slate-500 text-xs mt-3">
@@ -552,18 +579,19 @@ export default function AdminSalesPage() {
               <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
                 <Table2 size={20} className="text-emerald-600" />
                 <h2 className="font-bold text-slate-800">商品別売上・比較</h2>
+                <span className="text-slate-400 text-sm font-normal">· ยอดขายรายสินค้า</span>
               </div>
               <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
                 <table className="w-full text-sm min-w-[640px]">
                   <thead className="sticky top-0 z-[1] bg-slate-50 border-b border-slate-200">
                     <tr>
-                      <th className="text-left px-4 py-3 font-semibold text-slate-700 w-[20%]">商品名</th>
-                      <th className="text-right px-4 py-3 font-semibold text-slate-700 w-[10%]">販売数</th>
-                      <th className="text-right px-4 py-3 font-semibold text-slate-700 w-[14%]">実際の売上</th>
-                      <th className="text-right px-4 py-3 font-semibold text-slate-700 w-[12%]">割合</th>
-                      <th className="text-right px-4 py-3 font-semibold text-slate-700 w-[14%]">タイ価格</th>
-                      <th className="text-right px-4 py-3 font-semibold text-slate-700 w-[14%]">旧価格売上</th>
-                      <th className="text-right px-4 py-3 font-semibold text-slate-700 w-[16%]">差額（増益）</th>
+                      <th className="text-left px-4 py-3 font-semibold text-slate-700 w-[20%] text-xs">商品名 · สินค้า</th>
+                      <th className="text-right px-4 py-3 font-semibold text-slate-700 w-[10%] text-xs">販売数 · จำนวน</th>
+                      <th className="text-right px-4 py-3 font-semibold text-slate-700 w-[14%] text-xs">売上 · ยอดขาย</th>
+                      <th className="text-right px-4 py-3 font-semibold text-slate-700 w-[12%] text-xs">割合 · %</th>
+                      <th className="text-right px-4 py-3 font-semibold text-slate-700 w-[14%] text-xs">タイ価格 · ราคาไทย</th>
+                      <th className="text-right px-4 py-3 font-semibold text-slate-700 w-[14%] text-xs">旧価格売上</th>
+                      <th className="text-right px-4 py-3 font-semibold text-slate-700 w-[16%] text-xs">増益 · กำไร</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -683,6 +711,7 @@ export default function AdminSalesPage() {
                   <div className="flex items-center gap-2 mb-4">
                     <BarChart3 size={20} className="text-emerald-600" />
                     <h2 className="font-bold text-slate-800">商品別売上（上位10件）</h2>
+                    <span className="text-slate-400 text-sm font-normal">· TOP 10 สินค้า</span>
                   </div>
                   <div className="h-80 w-full">
                     <ResponsiveContainer width="100%" height="100%">
@@ -711,7 +740,8 @@ export default function AdminSalesPage() {
                 <section className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
                   <div className="flex items-center gap-2 mb-4">
                     <PieChartIcon size={20} className="text-emerald-600" />
-                    <h2 className="font-bold text-slate-800">売上割合（円グラフ）</h2>
+                    <h2 className="font-bold text-slate-800">売上割合</h2>
+                    <span className="text-slate-400 text-sm font-normal">· สัดส่วนยอดขาย</span>
                   </div>
                   <div className="h-80 w-full">
                     <ResponsiveContainer width="100%" height="100%">

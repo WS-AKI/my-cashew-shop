@@ -408,12 +408,25 @@ export default function CheckoutPage() {
       }
 
       if (orderId) {
+        const notifyItems = items.map((item) => ({
+          name: item.product.name_ja || item.product.name_th || "",
+          size_g: item.selectedSizeG,
+          quantity: item.quantity,
+          unit_price: getItemPrice(item),
+        }));
         fetch("/api/notify-order", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             order_id: orderId,
             customer_name: trimmedName,
+            customer_phone: trimmedPhone,
+            customer_address: trimmedAddress,
+            order_notes: normalizedNote || null,
+            items: notifyItems,
+            subtotal: total,
+            shipping_fee: shippingFee,
+            discount_amount: discountAmount,
             total_amount: totalWithShipping,
           }),
         }).catch(() => {});

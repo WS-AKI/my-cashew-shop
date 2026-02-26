@@ -8,7 +8,10 @@
     "start": "next start",
     "lint": "eslint",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "build:opennext": "opennextjs-cloudflare build",
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "predeploy:only": "node -e \"if(!require('fs').existsSync('.open-next/worker.js')){console.error('\\n❌ .open-next/worker.js not found. Run: npm run deploy (builds then deploys).\\n'); process.exit(1)}\"",
+    "deploy:only": "opennextjs-cloudflare deploy",
     "upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
