@@ -113,7 +113,7 @@ function NutritionChart() {
           />
           <Tooltip
             cursor={{ fill: "#fafaf9" }}
-            formatter={(value: number) => [`${value}%`, "1日推奨量"]}
+            formatter={(value: number | string) => [`${value}%`, "1日推奨量"]}
             contentStyle={{ borderRadius: 12, border: "1px solid #e7e5e4", fontSize: 13 }}
           />
           <Bar
