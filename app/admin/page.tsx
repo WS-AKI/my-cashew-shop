@@ -42,21 +42,29 @@ const ADMIN_PIN = "607051";
 const PIN_STORAGE_KEY = "admin-unlocked";
 
 const STATUS_CONFIG = {
-  pending:  { label: "未確認",   labelTh: "รอตรวจสอบ",   color: "bg-amber-100 text-amber-700  border-amber-300" },
-  paid:     { label: "入金確認", labelTh: "ชำระเงินแล้ว", color: "bg-blue-100  text-blue-700   border-blue-300"  },
-  shipped:  { label: "発送済",   labelTh: "จัดส่งแล้ว",   color: "bg-emerald-100 text-emerald-700 border-emerald-300" },
+  pending:         { label: "未確認",   labelTh: "รอตรวจสอบ",      color: "bg-amber-100  text-amber-700   border-amber-300"  },
+  price_confirmed: { label: "料金確認", labelTh: "ยืนยันค่าจัดส่ง", color: "bg-blue-100   text-blue-700    border-blue-300"   },
+  shipping:        { label: "配達中",   labelTh: "กำลังจัดส่ง",     color: "bg-violet-100 text-violet-700  border-violet-300" },
+  delivered:       { label: "配達済み", labelTh: "จัดส่งแล้ว",      color: "bg-emerald-100 text-emerald-700 border-emerald-300" },
 } as const;
 
 const STATUS_OPTIONS = [
-  { value: "pending", label: "⏳ 未確認 · รอตรวจสอบ" },
-  { value: "paid",    label: "✅ 入金確認 · ชำระเงินแล้ว" },
-  { value: "shipped", label: "🚚 発送済 · จัดส่งแล้ว" },
+  { value: "pending",         label: "⏳ 未確認 · รอตรวจสอบ" },
+  { value: "price_confirmed", label: "💰 料金確認 · ยืนยันค่าจัดส่ง" },
+  { value: "shipping",        label: "🚚 配達中 · กำลังจัดส่ง" },
+  { value: "delivered",       label: "✅ 配達済み · จัดส่งแล้ว" },
 ] as const;
 
-const ALLOWED_STATUSES = ["pending", "paid", "shipped"] as const;
-function normalizeOrderStatus(s: string | undefined | null): "pending" | "paid" | "shipped" {
-  const lower = (s ?? "").toLowerCase() as "pending" | "paid" | "shipped";
-  return ALLOWED_STATUSES.includes(lower) ? lower : "pending";
+const ALLOWED_STATUSES = ["pending", "price_confirmed", "shipping", "delivered"] as const;
+function normalizeOrderStatus(s: string | undefined | null): "pending" | "price_confirmed" | "shipping" | "delivered" {
+  const val = (s ?? "").toLowerCase();
+  // 旧ステータスの後方互換マッピング
+  if (val === "paid") return "price_confirmed";
+  if (val === "shipped") return "shipping";
+  if ((ALLOWED_STATUSES as readonly string[]).includes(val)) {
+    return val as "pending" | "price_confirmed" | "shipping" | "delivered";
+  }
+  return "pending";
 }
 
 // ── 型定義 ────────────────────────────────────────────────────────
@@ -255,10 +263,11 @@ export default function AdminPage() {
   }
 
   // ── 統計サマリー ─────────────────────────────────────────────────
-  const pendingCount  = orders.filter((o) => normalizeOrderStatus(o.status) === "pending").length;
-  const paidCount     = orders.filter((o) => normalizeOrderStatus(o.status) === "paid").length;
-  const shippedCount  = orders.filter((o) => normalizeOrderStatus(o.status) === "shipped").length;
-  const totalRevenue  = orders.reduce((s, o) => s + (o.total_amount ?? 0), 0);
+  const pendingCount        = orders.filter((o) => normalizeOrderStatus(o.status) === "pending").length;
+  const priceConfirmedCount = orders.filter((o) => normalizeOrderStatus(o.status) === "price_confirmed").length;
+  const shippingCount       = orders.filter((o) => normalizeOrderStatus(o.status) === "shipping").length;
+  const deliveredCount      = orders.filter((o) => normalizeOrderStatus(o.status) === "delivered").length;
+  const totalRevenue        = orders.reduce((s, o) => s + (o.total_amount ?? 0), 0);
 
   // ── メイン画面 ───────────────────────────────────────────────────
   return (
@@ -287,20 +296,24 @@ export default function AdminPage() {
 
       {/* 統計カード */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
           <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-            <p className="text-xs text-slate-500 font-medium">未確認 · รอตรวจสอบ</p>
+            <p className="text-xs text-slate-500 font-medium">未確認</p>
             <p className="text-2xl font-bold text-amber-600 mt-1">{pendingCount}</p>
           </div>
           <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-            <p className="text-xs text-slate-500 font-medium">入金確認 · ชำระแล้ว</p>
-            <p className="text-2xl font-bold text-blue-600 mt-1">{paidCount}</p>
+            <p className="text-xs text-slate-500 font-medium">料金確認</p>
+            <p className="text-2xl font-bold text-blue-600 mt-1">{priceConfirmedCount}</p>
           </div>
           <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-            <p className="text-xs text-slate-500 font-medium">発送済 · จัดส่งแล้ว</p>
-            <p className="text-2xl font-bold text-emerald-600 mt-1">{shippedCount}</p>
+            <p className="text-xs text-slate-500 font-medium">配達中</p>
+            <p className="text-2xl font-bold text-violet-600 mt-1">{shippingCount}</p>
           </div>
           <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+            <p className="text-xs text-slate-500 font-medium">配達済み</p>
+            <p className="text-2xl font-bold text-emerald-600 mt-1">{deliveredCount}</p>
+          </div>
+          <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm col-span-2 sm:col-span-1 lg:col-span-2">
             <p className="text-xs text-slate-500 font-medium">売上合計 · ยอดรวม</p>
             <p className="text-2xl font-bold text-slate-800 mt-1">
               ฿{totalRevenue.toLocaleString()}

@@ -14,9 +14,10 @@ import {
 } from "lucide-react";
 
 const STEPS = [
-  { key: "pending", label: { ja: "注文受付", th: "รับออเดอร์แล้ว" }, icon: Package },
-  { key: "paid", label: { ja: "お支払い確認済", th: "ชำระเงินแล้ว" }, icon: CreditCard },
-  { key: "shipped", label: { ja: "発送完了", th: "จัดส่งแล้ว" }, icon: Truck },
+  { key: "pending",         label: { ja: "注文受付",   th: "รับออเดอร์แล้ว" }, icon: Package      },
+  { key: "price_confirmed", label: { ja: "料金確認",   th: "ยืนยันค่าจัดส่ง" }, icon: CreditCard   },
+  { key: "shipping",        label: { ja: "配達中",     th: "กำลังจัดส่ง"     }, icon: Truck        },
+  { key: "delivered",       label: { ja: "配達済み",   th: "จัดส่งแล้ว"      }, icon: CheckCircle  },
 ] as const;
 
 type OrderResult = {
@@ -34,8 +35,16 @@ type Message = {
   created_at: string;
 };
 
+function normalizeStatus(status: string): string {
+  const lower = status.toLowerCase();
+  if (lower === "paid") return "price_confirmed";
+  if (lower === "shipped") return "shipping";
+  return lower;
+}
+
 function statusIndex(status: string): number {
-  const idx = STEPS.findIndex((s) => s.key === status.toLowerCase());
+  const normalized = normalizeStatus(status);
+  const idx = STEPS.findIndex((s) => s.key === normalized);
   return idx === -1 ? 0 : idx;
 }
 
@@ -291,16 +300,19 @@ function TrackContent() {
 
             {/* Progress */}
             <div className="bg-white rounded-2xl shadow-sm border border-amber-100 overflow-hidden">
-              <div className="px-6 pt-6 pb-4">
+              <div className="px-4 pt-6 pb-4">
                 <div className="flex items-center justify-between relative">
-                  <div className="absolute top-5 left-[10%] right-[10%] h-0.5 bg-gray-200" />
-                  <div className="absolute top-5 left-[10%] h-0.5 bg-amber-500 transition-all duration-500" style={{ width: `${activeIdx * 40}%` }} />
+                  <div className="absolute top-5 left-[6%] right-[6%] h-0.5 bg-gray-200" />
+                  <div
+                    className="absolute top-5 left-[6%] h-0.5 bg-amber-500 transition-all duration-500"
+                    style={{ width: `${activeIdx * ((100 - 12) / (STEPS.length - 1))}%` }}
+                  />
                   {STEPS.map((step, i) => {
                     const Icon = step.icon;
                     const done = i <= activeIdx;
                     const current = i === activeIdx;
                     return (
-                      <div key={step.key} className="relative flex flex-col items-center z-10 w-1/3">
+                      <div key={step.key} className="relative flex flex-col items-center z-10 w-1/4">
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${done ? current ? "bg-amber-500 text-white ring-4 ring-amber-200 scale-110" : "bg-amber-500 text-white" : "bg-gray-200 text-gray-400"}`}>
                           <Icon size={18} />
                         </div>
