@@ -128,7 +128,8 @@ function NutritionChart() {
             <LabelList
               dataKey="pct"
               position="right"
-              formatter={(v: number | string) => `${v}%`}
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              formatter={(v: any) => `${v ?? ""}%`}
               style={{ fontSize: 12, fontWeight: 700, fill: "#57534e" }}
             />
           </Bar>
