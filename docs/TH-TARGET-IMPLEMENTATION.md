@@ -68,3 +68,18 @@
 4. **DB**: `docs/add-orders-audience-column.sql` を Supabase で実行し、`orders.audience` を追加。
 5. 既存商品にタイ向け価格が未設定の場合、タイ向けサイトでは `thai_price` が 0 または null になるため、**管理画面でタイ向け価格（商品・バリアント）を入力**すること。
 6. ローカル開発では `.env.local` に `NEXT_PUBLIC_AUDIENCE=ja`（または `th`）を書いて切り替える。
+
+### ビルド設定（必須・404 対策）
+
+このプロジェクトは **OpenNext（@opennextjs/cloudflare）** でビルドします。Cloudflare の「Next.js」プリセット（`@cloudflare/next-on-pages`）は **使わない** でください。
+
+| 設定項目 | 値 |
+|----------|-----|
+| **Build command** | `npx opennextjs-cloudflare build`（または `npm run build:opennext`） |
+| **Build output directory** | （Pages の Git 連携の場合は OpenNext の仕様に従う。Wrangler でデプロイする場合は `.open-next` を成果物として使用） |
+
+- **日本向けだけ動いてタイ向けが 404 になる場合**:
+  1. **タイ用プロジェクトのビルドコマンド**が上記になっているか確認。プリセット「Next.js」のまま（`npx @cloudflare/next-on-pages@1`）だと別アダプタになり、出力形式が違うため 404 になりやすい。
+  2. **環境変数**を日本向けと同じくタイ用プロジェクトにも設定する（とくに `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`）。未設定だとビルドやランタイムで失敗し、結果 404 になることがある。
+  3. **デプロイ方法**: OpenNext は Wrangler でデプロイする想定。Git 連携の場合は「Cloudflare Workers」の CI/CD を使うか、ビルド後に `npx wrangler deploy`（または `npm run deploy`）が実行されるようにする。Pages の「静的サイト用」ビルド出力だけでは Worker が動かない。
+- **wrangler.jsonc**: `services[].service` は `name` と同一にすること（本リポジトリでは `samsian-shop`）。違うと Worker の自己参照が壊れ、ルーティングが 404 になることがある。また **`pages_build_output_dir`** を必ず設定する（値は `.open-next`）。これがないと Cloudflare Pages の Git ビルドが「Wrangler 設定は無効」と判断してスキップし、Worker が動かず 404 になる。
