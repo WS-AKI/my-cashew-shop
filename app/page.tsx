@@ -6,29 +6,75 @@ import Footer from "@/components/Footer";
 import HeroCarousel from "@/components/home/HeroCarousel";
 import ProductsGrid from "@/app/_components/ProductsGrid";
 import ProductsGridSkeleton from "@/app/_components/ProductsGridSkeleton";
+import { getAudienceFromEnv } from "@/lib/audience";
 
 /** 商品は Supabase から取得するため、ビルド時ではなくリクエスト時にレンダリングする */
 export const dynamic = "force-dynamic";
 
-const FEATURES = [
-  {
-    icon: Leaf,
-    title: "ウタラディット産プレミアム",
-    desc: "タイ・ウタラディット県産の厳選されたカシューナッツのみを使用。",
+const PAGE_TEXT = {
+  ja: {
+    heroTitle1: "タイ・ウタラディット県の大地で、",
+    heroTitle2: "大切に育てました。",
+    heroSub:
+      "豊かな自然と温かい気候に恵まれたウタラディットの大地で育ったカシューナッツを、産地直送でお届けします。一度食べたら忘れられない、本物の味をぜひ。",
+    cta: "商品を見る",
+    ctaAbout: "私たちについて",
+    features: [
+      {
+        title: "ウタラディット産プレミアム",
+        desc: "タイ・ウタラディット県産の厳選されたカシューナッツのみを使用。",
+      },
+      {
+        title: "品質保証",
+        desc: "毎ロット品質検査済み。鮮度にこだわり真空パックでお届け。",
+      },
+      {
+        title: "迅速発送",
+        desc: "ご入金確認後、1〜2営業日以内に発送いたします。",
+      },
+    ],
+    productsLabel: "Our Products",
+    productsHeading: "人気商品ラインナップ",
+    productsSub:
+      "全商品、タイ・ウタラディット県産を使用。素材本来の旨みを引き出すために、丁寧に焙煎しています。",
+    navAria: "商品セクションへジャンプ",
+    single: "単品",
+    set: "詰め合わせ",
   },
-  {
-    icon: ShieldCheck,
-    title: "品質保証",
-    desc: "毎ロット品質検査済み。鮮度にこだわり真空パックでお届け。",
+  th: {
+    heroTitle1: "ปลูกด้วยความรัก",
+    heroTitle2: "บนแผ่นดินอุตรดิตถ์",
+    heroSub:
+      "เม็ดมะม่วงหิมพานต์จากสวนของเราที่จังหวัดอุตรดิตถ์ ส่งตรงถึงมือคุณ รสชาติเข้มข้น อร่อยจนหยุดไม่ได้",
+    cta: "ดูสินค้า",
+    ctaAbout: "เกี่ยวกับเรา",
+    features: [
+      {
+        title: "พรีเมียมจากอุตรดิตถ์",
+        desc: "ใช้เม็ดมะม่วงหิมพานต์คัดพิเศษจากจังหวัดอุตรดิตถ์เท่านั้น",
+      },
+      {
+        title: "รับประกันคุณภาพ",
+        desc: "ตรวจสอบคุณภาพทุกล็อต บรรจุในบรรจุภัณฑ์สุญญากาศเพื่อความสดใหม่",
+      },
+      {
+        title: "จัดส่งรวดเร็ว",
+        desc: "จัดส่งภายใน 1–2 วันทำการหลังยืนยันการชำระเงิน",
+      },
+    ],
+    productsLabel: "Our Products",
+    productsHeading: "สินค้าแนะนำ",
+    productsSub: "ทุกชิ้นใช้มะม่วงหิมพานต์จากอุตรดิตถ์ คั่วสดเพื่อรักษารสชาติแท้ๆ",
+    navAria: "ไปยังหมวดสินค้า",
+    single: "เดี่ยว",
+    set: "เซ็ต",
   },
-  {
-    icon: Truck,
-    title: "迅速発送",
-    desc: "ご入金確認後、1〜2営業日以内に発送いたします。",
-  },
-];
+} as const;
 
 export default function HomePage() {
+  const audience = getAudienceFromEnv();
+  const t = PAGE_TEXT[audience];
+
   return (
     <div className="min-h-screen bg-amber-50 flex flex-col">
       <Header />
@@ -46,16 +92,13 @@ export default function HomePage() {
             </span>
 
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-amber-950 leading-tight tracking-tight mb-6">
-              タイ・ウタラディット県の大地で、
+              {t.heroTitle1}
               <br className="hidden sm:block" />
-              <span className="text-amber-600">大切に育てました。</span>
+              <span className="text-amber-600">{t.heroTitle2}</span>
             </h1>
 
             <p className="text-amber-800/70 text-lg sm:text-xl max-w-xl mx-auto leading-relaxed mb-10">
-              豊かな自然と温かい気候に恵まれた
-              ウタラディットの大地で育ったカシューナッツを、
-              産地直送でお届けします。
-              一度食べたら忘れられない、本物の味をぜひ。
+              {t.heroSub}
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -63,31 +106,30 @@ export default function HomePage() {
                 href="#products"
                 className="inline-flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-lg px-8 py-4 rounded-2xl shadow-lg hover:shadow-xl transition-all active:scale-95"
               >
-                商品を見る
+                {t.cta}
                 <ChevronRight size={20} />
               </Link>
               <Link
                 href="/about"
                 className="inline-flex items-center justify-center gap-2 bg-white/80 hover:bg-white text-amber-800 font-bold text-lg px-8 py-4 rounded-2xl border border-amber-200 transition-all active:scale-95"
               >
-                私たちについて
+                {t.ctaAbout}
               </Link>
             </div>
-
           </div>
         </section>
 
         {/* ─── 特徴セクション ──────────────────────────────────── */}
         <section className="bg-amber-900 py-12">
           <div className="max-w-5xl mx-auto px-4 sm:px-6 grid grid-cols-1 sm:grid-cols-3 gap-6">
-            {FEATURES.map(({ icon: Icon, title, desc }) => (
-              <div key={title} className="flex items-start gap-4">
+            {[Leaf, ShieldCheck, Truck].map((Icon, i) => (
+              <div key={i} className="flex items-start gap-4">
                 <div className="bg-amber-700 rounded-xl p-3 flex-shrink-0">
                   <Icon size={22} className="text-amber-300" />
                 </div>
                 <div>
-                  <h3 className="text-white font-bold mb-1">{title}</h3>
-                  <p className="text-amber-300/70 text-sm leading-relaxed">{desc}</p>
+                  <h3 className="text-white font-bold mb-1">{t.features[i].title}</h3>
+                  <p className="text-amber-300/70 text-sm leading-relaxed">{t.features[i].desc}</p>
                 </div>
               </div>
             ))}
@@ -98,42 +140,34 @@ export default function HomePage() {
         <section id="products" className="max-w-5xl mx-auto px-4 sm:px-6 py-16">
           <div className="text-center mb-10">
             <span className="text-amber-500 text-xs font-bold uppercase tracking-widest">
-              Our Products
+              {t.productsLabel}
             </span>
             <h2 className="text-3xl font-extrabold text-amber-950 mt-2 mb-3">
-              人気商品ラインナップ
+              {t.productsHeading}
             </h2>
             <p className="text-amber-700/60 max-w-md mx-auto text-sm leading-relaxed mb-6">
-              全商品、タイ・ウタラディット県産を使用。
-              素材本来の旨みを引き出すために、丁寧に焙煎しています。
+              {t.productsSub}
             </p>
-            <nav className="flex flex-wrap justify-center gap-2" aria-label="商品セクションへジャンプ">
+            <nav className="flex flex-wrap justify-center gap-2" aria-label={t.navAria}>
               <a
                 href="#single"
                 className="px-4 py-2 rounded-full bg-amber-200 text-amber-900 text-sm font-bold hover:bg-amber-300 transition-colors"
               >
-                単品
+                {t.single}
               </a>
               <a
                 href="#set"
                 className="px-4 py-2 rounded-full bg-orange-200 text-orange-900 text-sm font-bold hover:bg-orange-300 transition-colors"
               >
-                詰め合わせ
+                {t.set}
               </a>
             </nav>
           </div>
 
-          {/*
-            Suspense で囲むことで:
-            - データ取得中 → ProductsGridSkeleton（グレーのアニメカード6枚）を表示
-            - データ取得完了 → ProductsGrid（実商品カード）に切り替わる
-          */}
           <Suspense fallback={<ProductsGridSkeleton />}>
             <ProductsGrid />
           </Suspense>
         </section>
-
-      
       </main>
 
       <Footer />

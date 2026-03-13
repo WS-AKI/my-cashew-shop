@@ -10,6 +10,7 @@ import { CheckCircle, ChevronRight, Copy, Check, Building2, Upload, Loader2, Fil
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { DualLanguageLabel } from "@/components/ui/DualLanguageLabel";
+import { useAudience } from "@/context/AudienceContext";
 import { SHOP_TEXT, BANK_INFO } from "@/lib/shop-config";
 
 const T = SHOP_TEXT.orderSuccess;
@@ -32,6 +33,7 @@ async function copyToClipboard(text: string): Promise<boolean> {
 export default function OrderSuccessContent() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get("order") ?? "";
+  const audience = useAudience();
 
   const [copied, setCopied] = useState<string | null>(null);
   const [orderTotal, setOrderTotal] = useState<number | null>(null);
@@ -181,14 +183,14 @@ export default function OrderSuccessContent() {
           </div>
           <h1 className="text-2xl font-extrabold text-amber-950 mb-2">
             <DualLanguageLabel
-              primary={slipUploaded ? T.titleConfirmed.ja : T.titleReceived.ja}
-              secondary={slipUploaded ? T.titleConfirmed.th : T.titleReceived.th}
+              primary={slipUploaded ? T.titleConfirmed[audience] : T.titleReceived[audience]}
+              secondary={slipUploaded ? T.titleConfirmed[audience === "ja" ? "th" : "ja"] : T.titleReceived[audience === "ja" ? "th" : "ja"]}
             />
           </h1>
           <p className="text-gray-600 text-sm">
             <DualLanguageLabel
-              primary={slipUploaded ? T.thankYou.ja : T.thankYouReceived.ja}
-              secondary={slipUploaded ? T.thankYou.th : T.thankYouReceived.th}
+              primary={slipUploaded ? T.thankYou[audience] : T.thankYouReceived[audience]}
+              secondary={slipUploaded ? T.thankYou[audience === "ja" ? "th" : "ja"] : T.thankYouReceived[audience === "ja" ? "th" : "ja"]}
             />
           </p>
         </div>
@@ -233,24 +235,24 @@ export default function OrderSuccessContent() {
           <div className="bg-amber-500 px-4 py-3 flex items-center gap-2">
             <Building2 size={20} className="text-white" />
             <span className="text-white font-bold">
-              <DualLanguageLabel primary={T.paymentMethod.ja} secondary={T.paymentMethod.th} className="text-white" secondaryClassName="text-white/80 text-xs" />
+              <DualLanguageLabel primary={T.paymentMethod[audience]} secondary={T.paymentMethod[audience === "ja" ? "th" : "ja"]} className="text-white" secondaryClassName="text-white/80 text-xs" />
             </span>
           </div>
           <div className="p-4 space-y-4">
             <p className="text-amber-800 text-sm font-medium">
-              <DualLanguageLabel primary={T.notePayment.ja} secondary={T.notePayment.th} />
+              <DualLanguageLabel primary={T.notePayment[audience]} secondary={T.notePayment[audience === "ja" ? "th" : "ja"]} />
             </p>
             <div className="border-t border-amber-100 pt-4 space-y-3">
               <div>
                 <p className="text-gray-400 text-xs font-medium">
-                  <DualLanguageLabel primary={T.bankName.ja} secondary={T.bankName.th} />
+                  <DualLanguageLabel primary={T.bankName[audience]} secondary={T.bankName[audience === "ja" ? "th" : "ja"]} />
                 </p>
                 <p className="text-gray-800 font-bold mt-0.5">{BANK_INFO.bankName}</p>
               </div>
               <div className="flex items-center justify-between gap-2">
                 <div>
                   <p className="text-gray-400 text-xs font-medium">
-                    <DualLanguageLabel primary={T.accountName.ja} secondary={T.accountName.th} />
+                    <DualLanguageLabel primary={T.accountName[audience]} secondary={T.accountName[audience === "ja" ? "th" : "ja"]} />
                   </p>
                   <p className="text-gray-800 font-bold mt-0.5">{BANK_INFO.accountName}</p>
                   {"accountNameTH" in BANK_INFO && (
@@ -265,13 +267,13 @@ export default function OrderSuccessContent() {
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-100 text-amber-700 text-sm font-medium shrink-0"
                 >
                   {copied === "name" ? <Check size={14} /> : <Copy size={14} />}
-                  {copied === "name" ? T.copied.ja : T.copy.ja}
+                  {copied === "name" ? T.copied[audience] : T.copy[audience]}
                 </button>
               </div>
               <div className="flex items-center justify-between gap-2">
                 <div>
                   <p className="text-gray-400 text-xs font-medium">
-                    <DualLanguageLabel primary={T.accountNumber.ja} secondary={T.accountNumber.th} />
+                    <DualLanguageLabel primary={T.accountNumber[audience]} secondary={T.accountNumber[audience === "ja" ? "th" : "ja"]} />
                   </p>
                   <p className="text-gray-800 font-bold text-lg tracking-wider mt-0.5">{BANK_INFO.accountNumber}</p>
                 </div>
@@ -281,7 +283,7 @@ export default function OrderSuccessContent() {
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-100 text-amber-700 text-sm font-medium shrink-0"
                 >
                   {copied === "number" ? <Check size={14} /> : <Copy size={14} />}
-                  {copied === "number" ? T.copied.ja : T.copy.ja}
+                  {copied === "number" ? T.copied[audience] : T.copy[audience]}
                 </button>
               </div>
             </div>
@@ -293,7 +295,7 @@ export default function OrderSuccessContent() {
           <section className="bg-white rounded-2xl shadow-sm border border-amber-100 overflow-hidden">
             <div className="bg-amber-500 px-4 py-3 flex items-center gap-2">
               <span className="text-white font-bold">
-                <DualLanguageLabel primary={T.promptPay.ja} secondary={T.promptPay.th} className="text-white" secondaryClassName="text-white/80 text-xs" />
+                <DualLanguageLabel primary={T.promptPay[audience]} secondary={T.promptPay[audience === "ja" ? "th" : "ja"]} className="text-white" secondaryClassName="text-white/80 text-xs" />
               </span>
             </div>
             <div className="p-4 flex flex-col items-center gap-3">
@@ -301,7 +303,7 @@ export default function OrderSuccessContent() {
               {orderTotal != null && (
                 <div className="w-full bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-center">
                   <p className="text-xs text-amber-700 font-medium">
-                    <DualLanguageLabel primary={T.orderTotalLabel.ja} secondary={T.orderTotalLabel.th} />
+                    <DualLanguageLabel primary={T.orderTotalLabel[audience]} secondary={T.orderTotalLabel[audience === "ja" ? "th" : "ja"]} />
                   </p>
                   <p className="text-2xl font-extrabold text-amber-600 mt-0.5">฿{orderTotal.toLocaleString()}</p>
                   <p className="text-xs text-amber-600 mt-1">
@@ -359,7 +361,7 @@ export default function OrderSuccessContent() {
               {orderTotal != null && (
                 <div className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
                   <p className="text-gray-600 text-xs">
-                    <DualLanguageLabel primary={T.orderTotalLabel.ja} secondary={T.orderTotalLabel.th} />
+                    <DualLanguageLabel primary={T.orderTotalLabel[audience]} secondary={T.orderTotalLabel[audience === "ja" ? "th" : "ja"]} />
                   </p>
                   <p className="text-gray-900 font-bold text-lg">฿{orderTotal.toLocaleString()}</p>
                 </div>
@@ -381,15 +383,15 @@ export default function OrderSuccessContent() {
               {orderTotal != null && !slipUploaded && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    <DualLanguageLabel primary={T.slipAmountLabel.ja} secondary={T.slipAmountLabel.th} />
+                    <DualLanguageLabel primary={T.slipAmountLabel[audience]} secondary={T.slipAmountLabel[audience === "ja" ? "th" : "ja"]} />
                     <span className="text-amber-600 font-medium ml-1">
-                      <DualLanguageLabel primary={T.slipAmountRequired.ja} secondary={T.slipAmountRequired.th} />
+                      <DualLanguageLabel primary={T.slipAmountRequired[audience]} secondary={T.slipAmountRequired[audience === "ja" ? "th" : "ja"]} />
                     </span>
                   </label>
                   {slipOcrReading && (
                     <p className="text-amber-600 text-sm mb-2 flex items-center gap-2">
                       <Loader2 size={16} className="animate-spin flex-shrink-0" />
-                      <DualLanguageLabel primary={T.slipOcrReading.ja} secondary={T.slipOcrReading.th} />
+                      <DualLanguageLabel primary={T.slipOcrReading[audience]} secondary={T.slipOcrReading[audience === "ja" ? "th" : "ja"]} />
                     </p>
                   )}
                   <input
@@ -403,7 +405,7 @@ export default function OrderSuccessContent() {
                   />
                   {slipOcrDone && slipAmountInput !== "" && (
                     <p className="mt-1.5 text-gray-600 text-xs flex items-center gap-1">
-                      <DualLanguageLabel primary={T.slipAmountOcrHint.ja} secondary={T.slipAmountOcrHint.th} />
+                      <DualLanguageLabel primary={T.slipAmountOcrHint[audience]} secondary={T.slipAmountOcrHint[audience === "ja" ? "th" : "ja"]} />
                     </p>
                   )}
                   {slipAmountInput !== "" && (() => {
@@ -413,7 +415,7 @@ export default function OrderSuccessContent() {
                       return (
                         <p className="mt-2 text-red-600 text-sm font-medium flex items-center gap-2">
                           <span className="flex-shrink-0 w-5 h-5 rounded-full bg-red-100 flex items-center justify-center text-red-600">!</span>
-                          <DualLanguageLabel primary={T.slipAmountMismatch.ja} secondary={T.slipAmountMismatch.th} />
+                          <DualLanguageLabel primary={T.slipAmountMismatch[audience]} secondary={T.slipAmountMismatch[audience === "ja" ? "th" : "ja"]} />
                         </p>
                       );
                     }
@@ -421,14 +423,14 @@ export default function OrderSuccessContent() {
                       return (
                         <p className="mt-2 text-green-600 text-sm font-medium flex items-center gap-2">
                           <span className="flex-shrink-0 w-5 h-5 rounded-full bg-green-100 flex items-center justify-center text-green-600">✓</span>
-                          <DualLanguageLabel primary={T.slipAmountMatch.ja} secondary={T.slipAmountMatch.th} />
+                          <DualLanguageLabel primary={T.slipAmountMatch[audience]} secondary={T.slipAmountMatch[audience === "ja" ? "th" : "ja"]} />
                         </p>
                       );
                     }
                     return (
                       <p className="mt-2 text-amber-700 text-sm font-medium flex items-center gap-2">
                         <span className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center text-amber-600">i</span>
-                        <DualLanguageLabel primary={T.slipAmountOver.ja} secondary={T.slipAmountOver.th} />
+                        <DualLanguageLabel primary={T.slipAmountOver[audience]} secondary={T.slipAmountOver[audience === "ja" ? "th" : "ja"]} />
                       </p>
                     );
                   })()}
@@ -522,8 +524,8 @@ export default function OrderSuccessContent() {
               href="/#products"
               className="block w-full py-3 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-center flex items-center justify-center gap-2 shadow-sm"
             >
-              {T.continueShopping.ja}
-              <span className="text-white/80 text-xs">({T.continueShopping.th})</span>
+              {T.continueShopping[audience]}
+              <span className="text-white/80 text-xs">({T.continueShopping[audience === "ja" ? "th" : "ja"]})</span>
               <ChevronRight size={18} />
             </Link>
           </div>
@@ -534,8 +536,8 @@ export default function OrderSuccessContent() {
                 href="/#products"
                 className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold px-6 py-3 rounded-2xl shadow-sm"
               >
-                {T.continueShopping.ja}
-                <span className="text-white/80 text-xs ml-1">({T.continueShopping.th})</span>
+                {T.continueShopping[audience]}
+                <span className="text-white/80 text-xs ml-1">({T.continueShopping[audience === "ja" ? "th" : "ja"]})</span>
                 <ChevronRight size={18} />
               </Link>
             </div>

@@ -3,9 +3,14 @@
 import Link from "next/link";
 import { ShoppingCart } from "lucide-react";
 import { useCart } from "@/context/CartContext";
+import { useAudience } from "@/context/AudienceContext";
+import { SHOP_TEXT } from "@/lib/shop-config";
+
+const Nav = SHOP_TEXT.nav;
 
 export default function Header() {
   const { totalQuantity } = useCart();
+  const audience = useAudience();
 
   return (
     <header className="sticky top-0 z-40 bg-amber-50/90 backdrop-blur-md border-b border-amber-100">
@@ -27,25 +32,25 @@ export default function Header() {
         {/* ナビ */}
         <nav className="hidden sm:flex items-center gap-6 text-sm font-medium text-amber-800">
           <Link href="/" className="hover:text-amber-600 transition-colors">
-            ホーム
+            {Nav.home[audience]}
           </Link>
           <Link
             href="/products"
             className="hover:text-amber-600 transition-colors"
           >
-            商品一覧
+            {Nav.products[audience]}
           </Link>
           <Link
             href="/about"
             className="hover:text-amber-600 transition-colors"
           >
-            私たちについて
+            {Nav.about[audience]}
           </Link>
           <Link
             href="/track"
             className="hover:text-amber-600 transition-colors"
           >
-            注文確認
+            {Nav.track[audience]}
           </Link>
         </nav>
 

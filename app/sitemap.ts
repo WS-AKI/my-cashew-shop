@@ -3,7 +3,9 @@ import { SITE_URL } from "@/lib/shop-config";
 
 /**
  * Google Search Console 用の sitemap。
- * 公開・インデックス対象のページのみ含め、changeFrequency でクローラーに更新頻度を伝え巡回を促進する。
+ * NEXT_PUBLIC_SITE_URL（ビルド時環境変数）を base URL に使用する。
+ * cashew-ja.pages.dev と cashew-th.pages.dev はそれぞれ独立してビルドされるため、
+ * 各プロジェクトの NEXT_PUBLIC_SITE_URL に本番 URL を設定すれば別々にインデックスされる。
  */
 export default function sitemap(): MetadataRoute.Sitemap {
   const base = SITE_URL.replace(/\/$/, "");
@@ -37,3 +39,4 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   return routes;
 }
+

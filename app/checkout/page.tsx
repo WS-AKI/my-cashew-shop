@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useCart } from "@/context/CartContext";
+import { useAudience } from "@/context/AudienceContext";
 import { createClient } from "@/lib/supabase/client";
 import { getItemPrice, getItemOriginalPrice, FLAVOR_COLORS, FlavorColor, setFlavorSummary, serializeSetFlavors } from "@/types";
 import Header from "@/components/Header";
@@ -159,6 +160,7 @@ export default function CheckoutPage() {
   const supabase = createClient();
   const { items, subtotal, discountRate, discountAmount, total, nextDiscountStep, clearCart } =
     useCart();
+  const audience = useAudience();
 
   const shippingFee = getShippingFeeBaht(total);
   const totalWithShipping = total + shippingFee;
@@ -180,16 +182,16 @@ export default function CheckoutPage() {
           <div className="text-center">
             <ShoppingCart size={64} className="text-amber-200 mx-auto mb-4" />
             <h2 className="text-xl font-bold text-gray-700 mb-2">
-              <DualLanguageLabel primary={T.cartEmpty.ja} secondary={T.cartEmpty.th} />
+              <DualLanguageLabel primary={T.cartEmpty[audience]} secondary={T.cartEmpty[audience === "ja" ? "th" : "ja"]} />
             </h2>
             <p className="text-gray-500 text-sm mb-6">
-              <DualLanguageLabel primary={T.cartEmptyHint.ja} secondary={T.cartEmptyHint.th} />
+              <DualLanguageLabel primary={T.cartEmptyHint[audience]} secondary={T.cartEmptyHint[audience === "ja" ? "th" : "ja"]} />
             </p>
             <Link
               href="/#products"
               className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold px-6 py-3 rounded-xl"
             >
-              {SHOP_TEXT.cart.viewProducts.ja}
+              {SHOP_TEXT.cart.viewProducts[audience]}
               <ChevronRight size={18} />
             </Link>
           </div>
@@ -218,8 +220,7 @@ export default function CheckoutPage() {
       const guestUserId = getOrCreateGuestUserId();
       const clientOrderId = generateGuestId();
 
-      const payloadVariants: Record<string, unknown>[] = [
-        // 新スキーマ向け: shipping_* と旧キーの両方を送る
+      const basePayloads: Record<string, unknown>[] = [
         {
           shipping_name: trimmedName,
           shipping_phone: trimmedPhone,
@@ -242,7 +243,6 @@ export default function CheckoutPage() {
           total_amount: totalWithShipping,
           status: "pending",
         },
-        // shipping_* のみ必要なスキーマ向け
         {
           shipping_name: trimmedName,
           shipping_phone: trimmedPhone,
@@ -250,7 +250,6 @@ export default function CheckoutPage() {
           total_amount: totalWithShipping,
           status: "pending",
         },
-        // 旧スキーマ向け: user_* / address
         {
           user_name: trimmedName,
           user_phone: trimmedPhone,
@@ -273,7 +272,6 @@ export default function CheckoutPage() {
           address: trimmedAddress,
           total_amount: totalWithShipping,
         },
-        // user_id 必須スキーマ向け
         {
           user_id: guestUserId,
           shipping_name: trimmedName,
@@ -296,6 +294,7 @@ export default function CheckoutPage() {
           status: "pending",
         },
       ];
+      const payloadVariants = basePayloads.map((p) => ({ ...p, audience }));
 
       let orderId: string | null = null;
       let lastOrderError: SupabaseLikeError | null = null;
@@ -409,7 +408,7 @@ export default function CheckoutPage() {
 
       if (orderId) {
         const notifyItems = items.map((item) => ({
-          name: item.product.name_ja || item.product.name_th || "",
+          name: audience === "th" && item.product.name_th ? item.product.name_th : (item.product.name_ja || item.product.name_th || ""),
           size_g: item.selectedSizeG,
           quantity: item.quantity,
           unit_price: getItemPrice(item),
@@ -451,7 +450,7 @@ export default function CheckoutPage() {
       <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-6 space-y-6 pb-8">
         <h1 className="text-2xl font-extrabold text-amber-950 flex items-center gap-2">
           <ShoppingBag size={26} className="text-amber-500" />
-          <DualLanguageLabel primary={T.title.ja} secondary={T.title.th} />
+          <DualLanguageLabel primary={T.title[audience]} secondary={T.title[audience === "ja" ? "th" : "ja"]} />
         </h1>
 
         {nextDiscountStep && (
@@ -467,7 +466,7 @@ export default function CheckoutPage() {
         <div className="bg-white rounded-2xl shadow-sm border border-amber-100 overflow-hidden">
           <div className="bg-amber-50 px-4 py-3 border-b border-amber-100">
             <h2 className="font-bold text-amber-900">
-              <DualLanguageLabel primary={T.orderSummary.ja} secondary={T.orderSummary.th} />
+              <DualLanguageLabel primary={T.orderSummary[audience]} secondary={T.orderSummary[audience === "ja" ? "th" : "ja"]} />
             </h2>
           </div>
           <ul className="divide-y divide-gray-100">
@@ -485,7 +484,7 @@ export default function CheckoutPage() {
                     {product.image_url ? (
                       <Image
                         src={product.image_url}
-                        alt={product.name_ja}
+                        alt={audience === "th" && product.name_th ? product.name_th : product.name_ja}
                         fill
                         className="object-cover"
                         sizes="64px"
@@ -497,7 +496,7 @@ export default function CheckoutPage() {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-bold text-gray-800 text-sm truncate">{product.name_ja}</p>
+                    <p className="font-bold text-gray-800 text-sm truncate">{audience === "th" && product.name_th ? product.name_th : product.name_ja}</p>
                     <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                       {flavor && (
                         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${flavor.bg} ${flavor.text}`}>
@@ -558,18 +557,18 @@ export default function CheckoutPage() {
             )}
             <div className="rounded-xl bg-amber-100/80 border border-amber-200 px-3 py-2 my-2">
               <p className="text-amber-900 font-bold text-center text-lg">
-                <DualLanguageLabel primary={T.shippingBasic50.ja} secondary={T.shippingBasic50.th} />
+                <DualLanguageLabel primary={T.shippingBasic50[audience]} secondary={T.shippingBasic50[audience === "ja" ? "th" : "ja"]} />
               </p>
               <p className="text-amber-700 text-sm text-center mt-0.5">
-                <DualLanguageLabel primary={T.shippingFreeOver1000.ja} secondary={T.shippingFreeOver1000.th} />
+                <DualLanguageLabel primary={T.shippingFreeOver1000[audience]} secondary={T.shippingFreeOver1000[audience === "ja" ? "th" : "ja"]} />
               </p>
             </div>
             <div className="flex justify-between text-sm text-gray-600">
               <span>
                 {shippingFee === 0 ? (
-                  <DualLanguageLabel primary={T.shippingFree.ja} secondary={T.shippingFree.th} />
+                  <DualLanguageLabel primary={T.shippingFree[audience]} secondary={T.shippingFree[audience === "ja" ? "th" : "ja"]} />
                 ) : (
-                  <DualLanguageLabel primary={T.shipping.ja} secondary={T.shipping.th} />
+                  <DualLanguageLabel primary={T.shipping[audience]} secondary={T.shipping[audience === "ja" ? "th" : "ja"]} />
                 )}
               </span>
               <span>฿{shippingFee.toLocaleString()}</span>
@@ -584,7 +583,7 @@ export default function CheckoutPage() {
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-amber-100 overflow-hidden">
           <div className="bg-amber-50 px-4 py-3 border-b border-amber-100">
             <h2 className="font-bold text-amber-900">
-              <DualLanguageLabel primary={T.yourDetails.ja} secondary={T.yourDetails.th} />
+              <DualLanguageLabel primary={T.yourDetails[audience]} secondary={T.yourDetails[audience === "ja" ? "th" : "ja"]} />
             </h2>
           </div>
           <div className="p-4 space-y-4">
@@ -595,7 +594,7 @@ export default function CheckoutPage() {
               </div>
             )}
 
-            <Field icon={User} label={<DualLanguageLabel primary={T.name.ja} secondary={T.name.th} />}>
+            <Field icon={User} label={<DualLanguageLabel primary={T.name[audience]} secondary={T.name[audience === "ja" ? "th" : "ja"]} />}>
               <input
                 type="text"
                 value={form.name}
@@ -606,7 +605,7 @@ export default function CheckoutPage() {
               />
             </Field>
 
-            <Field icon={Phone} label={<DualLanguageLabel primary={T.phone.ja} secondary={T.phone.th} />}>
+            <Field icon={Phone} label={<DualLanguageLabel primary={T.phone[audience]} secondary={T.phone[audience === "ja" ? "th" : "ja"]} />}>
               <input
                 type="tel"
                 value={form.phone}
@@ -618,7 +617,7 @@ export default function CheckoutPage() {
               />
             </Field>
 
-            <Field icon={MapPin} label={<DualLanguageLabel primary={T.address.ja} secondary={T.address.th} />}>
+            <Field icon={MapPin} label={<DualLanguageLabel primary={T.address[audience]} secondary={T.address[audience === "ja" ? "th" : "ja"]} />}>
               <div className="space-y-2">
                 <select
                   value={form.areaDistrict}
@@ -666,7 +665,7 @@ export default function CheckoutPage() {
               </div>
             </Field>
 
-            <Field icon={MessageSquare} label={<DualLanguageLabel primary={T.note.ja} secondary={T.note.th} />}>
+            <Field icon={MessageSquare} label={<DualLanguageLabel primary={T.note[audience]} secondary={T.note[audience === "ja" ? "th" : "ja"]} />}>
               <textarea
                 value={form.note}
                 onChange={(e) => setForm({ ...form, note: e.target.value })}
@@ -684,12 +683,12 @@ export default function CheckoutPage() {
               {submitting ? (
                 <>
                   <Loader2 size={22} className="animate-spin" />
-                  {T.confirming.ja}
+                  {T.confirming[audience]}
                 </>
               ) : (
                 <>
-                  {T.confirmOrder.ja}
-                  <span className="text-white/80 text-xs ml-1">({T.confirmOrder.th})</span>
+                  {T.confirmOrder[audience]}
+                  <span className="text-white/80 text-xs ml-1">({T.confirmOrder[audience === "ja" ? "th" : "ja"]})</span>
                   <ChevronRight size={20} />
                 </>
               )}

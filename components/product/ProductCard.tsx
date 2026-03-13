@@ -7,8 +7,10 @@ import { Product, FLAVOR_COLORS, FlavorColor, SetFlavorKey, SetFlavorSelection, 
 import { SHOP_TEXT } from "@/lib/shop-config";
 import { useState, useMemo } from "react";
 import ProductReviews from "./ProductReviews";
+import { useAudience } from "@/context/AudienceContext";
 
 const T = SHOP_TEXT.cart;
+const P = SHOP_TEXT.product;
 const ALL_SET_FLAVORS: SetFlavorKey[] = ["original_salt", "original_nosalt", "cheese", "bbq", "nori", "tomyum"];
 
 type Props = { product: Product };
@@ -26,7 +28,13 @@ function emptySetFlavors(): SetFlavorSelection {
 
 export default function ProductCard({ product }: Props) {
   const { addToCart } = useCart();
+  const audience = useAudience();
   const [added, setAdded] = useState(false);
+
+  const productNamePrimary = audience === "th" && product.name_th ? product.name_th : product.name_ja;
+  const productNameSecondary = audience === "th" ? product.name_ja : product.name_th;
+  const productDescPrimary = audience === "th" && product.description_th ? product.description_th : product.description_ja;
+  const productDescSecondary = audience === "th" ? product.description_ja : product.description_th;
 
   const variants = getVariants(product);
   const hasVariants = !product.is_set && variants.length > 0;
@@ -124,7 +132,7 @@ export default function ProductCard({ product }: Props) {
           aria-live="polite"
           className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-amber-800 text-white font-bold px-6 py-3 rounded-full shadow-lg"
         >
-          {T.added.ja}
+          {T.added[audience]}
         </div>
       )}
       <div
@@ -132,10 +140,10 @@ export default function ProductCard({ product }: Props) {
           flavor ? flavor.cardBorder : "border-amber-100"
         }`}
       >
-        {product.is_promotion && (
+            {product.is_promotion && (
           <div className="absolute top-3 left-3 z-10 flex items-center gap-1 bg-amber-500 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-md">
             <Star size={11} fill="white" />
-            おすすめ
+            {P.recommended[audience]}
           </div>
         )}
 
@@ -148,7 +156,7 @@ export default function ProductCard({ product }: Props) {
             <>
               <Image
                 src={galleryImages[safeIdx]}
-                alt={product.name_ja}
+                alt={productNamePrimary}
                 fill
                 sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                 className="object-cover transition-transform duration-500"
@@ -208,14 +216,14 @@ export default function ProductCard({ product }: Props) {
 
           {isSet && !product.is_promotion && (
             <span className="absolute top-3 right-3 bg-orange-500 text-white text-[11px] font-bold px-2 py-0.5 rounded-full shadow">
-              セット
+              {P.set[audience]}
             </span>
           )}
 
           {product.stock === 0 && (
             <div className="absolute inset-0 bg-black/50 flex items-center justify-center backdrop-blur-[1px]">
               <span className="bg-white text-gray-800 font-bold text-sm px-5 py-2 rounded-full shadow-lg">
-                品切れ中
+                {P.outOfStock[audience]}
               </span>
             </div>
           )}
@@ -230,26 +238,26 @@ export default function ProductCard({ product }: Props) {
                 className="w-2 h-2 rounded-full flex-shrink-0"
                 style={{ backgroundColor: flavor.hex }}
               />
-              {flavor.label}
-              <span className="font-normal opacity-70">/ {flavor.labelTh}</span>
+              {audience === "th" ? flavor.labelTh : flavor.label}
+              <span className="font-normal opacity-70">/ {audience === "th" ? flavor.label : flavor.labelTh}</span>
             </span>
           )}
 
           <h3 className="font-extrabold text-gray-800 text-base leading-snug">
-            {product.name_ja}
+            {productNamePrimary}
           </h3>
 
-          {product.name_th && (
+          {productNameSecondary && (
             <p className="text-gray-400 text-xs mt-0.5 font-medium">
-              {product.name_th}
+              {productNameSecondary}
             </p>
           )}
 
-          {product.description_ja && (
+          {(productDescPrimary || productDescSecondary) && (
             <p className="text-gray-500 text-xs mt-1 leading-relaxed">
-              {product.description_ja}
-              {product.description_th && (
-                <span className="block text-gray-400 text-[10px] mt-0.5">{product.description_th}</span>
+              {productDescPrimary}
+              {productDescSecondary && (
+                <span className="block text-gray-400 text-[10px] mt-0.5">{productDescSecondary}</span>
               )}
             </p>
           )}
@@ -269,7 +277,7 @@ export default function ProductCard({ product }: Props) {
           {/* 単品オリジナル: 塩あり/塩なし */}
           {isOriginalSingle && (
             <div className="flex items-center gap-3 mb-2">
-              <span className="text-xs font-bold text-gray-600">塩:</span>
+              <span className="text-xs font-bold text-gray-600">{P.saltLabel[audience]}</span>
               <label className="flex items-center gap-1.5 cursor-pointer">
                 <input
                   type="radio"
@@ -278,7 +286,7 @@ export default function ProductCard({ product }: Props) {
                   onChange={() => setSaltOption("with_salt")}
                   className="text-amber-500"
                 />
-                <span className="text-sm font-medium">塩あり</span>
+                <span className="text-sm font-medium">{P.saltWith[audience]}</span>
               </label>
               <label className="flex items-center gap-1.5 cursor-pointer">
                 <input
@@ -288,7 +296,7 @@ export default function ProductCard({ product }: Props) {
                   onChange={() => setSaltOption("no_salt")}
                   className="text-amber-500"
                 />
-                <span className="text-sm font-medium">塩なし</span>
+                <span className="text-sm font-medium">{P.saltWithout[audience]}</span>
               </label>
             </div>
           )}
@@ -318,8 +326,7 @@ export default function ProductCard({ product }: Props) {
             {isSet && setBagCount > 0 && (
               <div className="space-y-2">
                 <p className="text-xs font-bold text-orange-700">
-                  味を選んでください ({flavorTotal}/{setBagCount})
-                  <span className="text-orange-400 font-normal ml-1">เลือกรส</span>
+                  {P.chooseFlavors[audience]} ({flavorTotal}/{setBagCount})
                 </p>
                 <div className="space-y-1.5">
                   {ALL_SET_FLAVORS.map((f) => {
@@ -334,7 +341,7 @@ export default function ProductCard({ product }: Props) {
                           style={{ backgroundColor: c.hex }}
                         />
                         <span className="text-xs font-medium text-gray-700 flex-1 truncate">
-                          {c.label}
+                          {audience === "th" ? c.labelTh : c.label}
                         </span>
                         <div className="flex items-center gap-1">
                           <button
@@ -363,7 +370,7 @@ export default function ProductCard({ product }: Props) {
                 </div>
                 {!flavorsFull && (
                   <p className="text-[10px] text-orange-500">
-                    あと{setBagCount - flavorTotal}袋選んでください
+                    {P.chooseMoreBags[audience]}{setBagCount - flavorTotal}{P.chooseMoreBagsSuffix[audience]}
                   </p>
                 )}
               </div>
@@ -426,13 +433,13 @@ export default function ProductCard({ product }: Props) {
                   }`}
               >
                 <ShoppingCart size={16} />
-                {added ? `✓ ${T.added.ja}` : T.add.ja}
+                {added ? `✓ ${T.added[audience]}` : T.add[audience]}
               </button>
             </div>
           </div>
         </div>
 
-        <ProductReviews productId={product.id} productName={product.name_ja} />
+        <ProductReviews productId={product.id} productName={productNamePrimary} />
       </div>
     </>
   );

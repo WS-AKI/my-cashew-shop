@@ -93,10 +93,22 @@ export const SHOP_TEXT = {
     },
     slipOcrReading: { ja: "写真から金額を読み取り中…", th: "กำลังอ่านจำนวนจากรูป…" },
   },
+  nav: {
+    home: { ja: "ホーム", th: "หน้าแรก" },
+    products: { ja: "商品一覧", th: "สินค้า" },
+    about: { ja: "私たちについて", th: "เกี่ยวกับเรา" },
+    track: { ja: "注文確認", th: "ติดตามคำสั่งซื้อ" },
+  },
   product: {
     outOfStock: { ja: "品切れ中", th: "หมดแล้ว" },
     set: { ja: "セット", th: "เซ็ต" },
     recommended: { ja: "おすすめ", th: "แนะนำ" },
+    saltWith: { ja: "塩あり", th: "มีเกลือ" },
+    saltWithout: { ja: "塩なし", th: "ไม่มีเกลือ" },
+    saltLabel: { ja: "塩:", th: "เกลือ:" },
+    chooseFlavors: { ja: "味を選んでください", th: "เลือกรส" },
+    chooseMoreBags: { ja: "あと", th: "เลือกอีก " },
+    chooseMoreBagsSuffix: { ja: "袋選んでください", th: " ถุง" },
   },
 } as const;
 

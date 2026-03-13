@@ -3,8 +3,39 @@ import { Truck, Package, Clock } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { SHIPPING_DESCRIPTION, SHOP_TEXT } from "@/lib/shop-config";
+import { getAudienceFromEnv } from "@/lib/audience";
+
+const PAGE_TEXT = {
+  ja: {
+    pageTitle: "送料・お届けについて",
+    shippingSection: "送料",
+    deliverySection: "お届け",
+    questionSection: "ご不明な点",
+    shippingAutoNote: "会計時に自動で適用されます。",
+    deliveryFrom: "タイ・ウタラディット県から直送しています。",
+    deliveryDetail: "ご入金確認後、1〜2営業日以内に発送いたします。配送業者（Flash Express 等）でお届けします。",
+    questionDetail: "送料・配送日などご不明な点は公式LINEよりお気軽にどうぞ。",
+    cta: "商品を見る",
+  },
+  th: {
+    pageTitle: "ค่าขนส่งและการจัดส่ง",
+    shippingSection: "ค่าขนส่ง",
+    deliverySection: "การจัดส่ง",
+    questionSection: "มีข้อสงสัย?",
+    shippingAutoNote: "คำนวณอัตโนมัติตอนชำระเงิน",
+    deliveryFrom: "จัดส่งตรงจากสวนของเราที่จังหวัดอุตรดิตถ์",
+    deliveryDetail: "จัดส่งภายใน 1–2 วันทำการหลังยืนยันการโอนเงิน ผ่านบริษัทขนส่ง (Flash Express เป็นต้น)",
+    questionDetail: "หากมีข้อสงสัยเรื่องค่าขนส่งหรือวันจัดส่ง ทักหาเราทาง LINE ทางการได้เลย",
+    cta: "ดูสินค้า",
+  },
+} as const;
 
 export default function ShippingPage() {
+  const audience = getAudienceFromEnv();
+  const t = PAGE_TEXT[audience];
+  const s = SHOP_TEXT.checkout;
+  const sd = SHIPPING_DESCRIPTION;
+
   return (
     <div className="min-h-screen bg-amber-50 flex flex-col">
       <Header />
@@ -12,7 +43,7 @@ export default function ShippingPage() {
       <main className="flex-1 max-w-2xl mx-auto w-full px-4 sm:px-6 py-12">
         <div className="text-center mb-10">
           <h1 className="text-2xl font-extrabold text-amber-950 mb-1">
-            送料・お届けについて
+            {t.pageTitle}
           </h1>
           <p className="text-amber-600 text-sm">ค่าขนส่งและการจัดส่ง / Shipping</p>
         </div>
@@ -21,45 +52,39 @@ export default function ShippingPage() {
           <div className="bg-white rounded-2xl border border-amber-100 p-6">
             <div className="flex items-center gap-3 mb-4">
               <Truck size={24} className="text-amber-500" />
-              <h2 className="font-bold text-amber-950">送料</h2>
+              <h2 className="font-bold text-amber-950">{t.shippingSection}</h2>
             </div>
             <p className="text-amber-900 font-bold text-xl text-center py-3 mb-3 bg-amber-50 rounded-xl border border-amber-200">
-              {SHOP_TEXT.checkout.shippingBasic50.ja}
+              {s.shippingBasic50[audience]}
             </p>
             <p className="text-amber-700 font-medium text-center mb-3">
-              {SHOP_TEXT.checkout.shippingFreeOver1000.ja}
-            </p>
-            <p className="text-gray-500 text-sm text-center" lang="th">
-              {SHOP_TEXT.checkout.shippingBasic50.th} · {SHOP_TEXT.checkout.shippingFreeOver1000.th}
+              {s.shippingFreeOver1000[audience]}
             </p>
             <p className="text-gray-600 text-sm leading-relaxed mt-4">
-              {SHIPPING_DESCRIPTION.ja} 会計時に自動で適用されます。
-            </p>
-            <p className="text-gray-500 text-xs mt-2" lang="th">
-              {SHIPPING_DESCRIPTION.th} — คำนวณอัตโนมัติตอนชำระเงิน
+              {sd[audience]} {t.shippingAutoNote}
             </p>
           </div>
 
           <div className="bg-white rounded-2xl border border-amber-100 p-6">
             <div className="flex items-center gap-3 mb-3">
               <Package size={24} className="text-amber-500" />
-              <h2 className="font-bold text-amber-950">お届け</h2>
+              <h2 className="font-bold text-amber-950">{t.deliverySection}</h2>
             </div>
-            <p className="text-gray-600 text-sm leading-relaxed">
-              ご入金確認後、1〜2営業日以内に発送いたします。配送業者（Flash Express 等）でお届けします。
+            <p className="text-amber-700 text-sm font-medium mb-2">
+              {t.deliveryFrom}
             </p>
-            <p className="text-gray-500 text-xs mt-2" lang="th">
-              จัดส่งภายใน 1–2 วันทำการหลังยืนยันการโอน
+            <p className="text-gray-600 text-sm leading-relaxed">
+              {t.deliveryDetail}
             </p>
           </div>
 
           <div className="bg-white rounded-2xl border border-amber-100 p-6">
             <div className="flex items-center gap-3 mb-3">
               <Clock size={24} className="text-amber-500" />
-              <h2 className="font-bold text-amber-950">ご不明な点</h2>
+              <h2 className="font-bold text-amber-950">{t.questionSection}</h2>
             </div>
             <p className="text-gray-600 text-sm leading-relaxed">
-              送料・配送日などご不明な点は公式LINEよりお気軽にどうぞ。
+              {t.questionDetail}
             </p>
           </div>
         </section>
@@ -69,7 +94,7 @@ export default function ShippingPage() {
             href="/#products"
             className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold px-6 py-3 rounded-xl transition-colors"
           >
-            商品を見る
+            {t.cta}
           </Link>
         </div>
       </main>

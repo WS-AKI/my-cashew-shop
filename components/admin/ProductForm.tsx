@@ -40,6 +40,7 @@ type FormData = {
   description_th: string;
   price: string;
   sale_price: string;
+  thai_price: string;
   stock: string;
   display_order: string;
   is_active: boolean;
@@ -50,6 +51,7 @@ type FormData = {
   set_quantity: string;
   sizePrices: SizePrices;
   sizeSalePrices: SizePrices;
+  sizeThaiPrices: SizePrices;
   sizeImages: SizeImageUrls;
 };
 
@@ -86,16 +88,28 @@ function buildInitialSizeImages(variants?: PriceVariant[]): SizeImageUrls {
   return imgs;
 }
 
+function buildInitialSizeThaiPrices(variants?: PriceVariant[]): SizePrices {
+  const prices: SizePrices = {};
+  for (const s of SIZE_OPTIONS) prices[s] = "";
+  if (variants && Array.isArray(variants)) {
+    for (const v of variants) {
+      if (v.size_g in prices && v.thai_price != null) prices[v.size_g] = String(v.thai_price);
+    }
+  }
+  return prices;
+}
+
 function buildInitialForm(product?: Product): FormData {
   if (!product) {
     return {
       name_ja: "", name_th: "",
       description_ja: "", description_th: "",
-      price: "", sale_price: "", stock: "0", display_order: "0",
+      price: "", sale_price: "", thai_price: "", stock: "0", display_order: "0",
       is_active: true, is_promotion: false,
       flavor_color: "", weight_g: "", is_set: false, set_quantity: "",
       sizePrices: buildInitialSizePrices(),
       sizeSalePrices: buildInitialSizeSalePrices(),
+      sizeThaiPrices: buildInitialSizeThaiPrices(),
       sizeImages: buildInitialSizeImages(),
     };
   }
@@ -106,6 +120,7 @@ function buildInitialForm(product?: Product): FormData {
     description_th: product.description_th ?? "",
     price: String(product.price),
     sale_price: product.sale_price ? String(product.sale_price) : "",
+    thai_price: product.thai_price != null ? String(product.thai_price) : "",
     stock: String(product.stock),
     display_order: String(product.display_order),
     is_active: product.is_active,
@@ -116,6 +131,7 @@ function buildInitialForm(product?: Product): FormData {
     set_quantity: product.set_quantity ? String(product.set_quantity) : "",
     sizePrices: buildInitialSizePrices(product.price_variants),
     sizeSalePrices: buildInitialSizeSalePrices(product.price_variants),
+    sizeThaiPrices: buildInitialSizeThaiPrices(product.price_variants),
     sizeImages: buildInitialSizeImages(product.price_variants),
   };
 }
@@ -123,6 +139,7 @@ function buildInitialForm(product?: Product): FormData {
 function buildPriceVariants(
   sizePrices: SizePrices,
   sizeSalePrices: SizePrices,
+  sizeThaiPrices: SizePrices,
   sizeImages: SizeImageUrls,
 ): PriceVariant[] {
   const variants: PriceVariant[] = [];
@@ -132,6 +149,8 @@ function buildPriceVariants(
       const saleVal = Number(sizeSalePrices[s]);
       const variant: PriceVariant = { size_g: s, price: Math.floor(val) };
       if (saleVal > 0 && saleVal < val) variant.sale_price = Math.floor(saleVal);
+      const thaiVal = Number(sizeThaiPrices[s]);
+      if (thaiVal > 0) variant.thai_price = Math.floor(thaiVal);
       if (sizeImages[s]) variant.image_url = sizeImages[s];
       variants.push(variant);
     }
@@ -374,11 +393,18 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     }));
   }
 
+  function updateSizeThaiPrice(size: number, value: string) {
+    setForm((prev) => ({
+      ...prev,
+      sizeThaiPrices: { ...prev.sizeThaiPrices, [size]: value },
+    }));
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
 
-    const priceVariants = form.is_set ? [] : buildPriceVariants(form.sizePrices, form.sizeSalePrices, form.sizeImages);
+    const priceVariants = form.is_set ? [] : buildPriceVariants(form.sizePrices, form.sizeSalePrices, form.sizeThaiPrices, form.sizeImages);
     const hasVariantPrices = priceVariants.length > 0;
 
     const basePrice = hasVariantPrices
@@ -414,8 +440,9 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
 
     const finalVariants = form.is_set
       ? []
-      : buildPriceVariants(form.sizePrices, form.sizeSalePrices, uploadedSizeImages);
+      : buildPriceVariants(form.sizePrices, form.sizeSalePrices, form.sizeThaiPrices, uploadedSizeImages);
 
+    const thaiPriceNum = form.thai_price.trim() ? Math.floor(Number(form.thai_price)) : null;
     const payload: Record<string, unknown> = {
       name_ja: form.name_ja.trim() || "",
       name_th: form.name_th.trim() || "",
@@ -423,6 +450,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       description_th: form.description_th.trim() || null,
       price: Math.floor(form.is_set ? Number(form.price) || 0 : basePrice),
       sale_price: salePrice !== null ? Math.floor(salePrice) : null,
+      thai_price: form.is_set ? thaiPriceNum : null,
       stock: Math.floor(Number(form.stock)) || 0,
       display_order: Math.floor(Number(form.display_order)) || 0,
       is_active: form.is_active,
@@ -721,7 +749,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                       type="number"
                       value={form.sizePrices[size]}
                       onChange={(e) => updateSizePrice(size, e.target.value)}
-                      placeholder="通常価格"
+                      placeholder="通常価格 (日本向け)"
                       min="0"
                     />
                     <Input
@@ -730,6 +758,17 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                       onChange={(e) => updateSizeSalePrice(size, e.target.value)}
                       placeholder="セール価格（任意）"
                       min="0"
+                    />
+                  </div>
+                  <div className="mt-2">
+                    <label className="text-[10px] font-semibold text-blue-600 block mb-1">タイ向け価格 (฿)</label>
+                    <Input
+                      type="number"
+                      value={form.sizeThaiPrices[size]}
+                      onChange={(e) => updateSizeThaiPrice(size, e.target.value)}
+                      placeholder="タイ人向け表示価格"
+                      min="0"
+                      ring="focus:ring-blue-400"
                     />
                   </div>
                   {Number(form.sizeSalePrices[size]) > 0 && Number(form.sizePrices[size]) > 0 && (
@@ -745,27 +784,40 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
 
         {/* Set price (set products only) */}
         {form.is_set && (
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label icon={Banknote}>セット定価 (฿) *</Label>
-              <Input
-                type="number"
-                value={form.price}
-                onChange={(e) => setForm({ ...form, price: e.target.value })}
-                placeholder="1000"
-                min="1"
-                required
-              />
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label icon={Banknote}>セット定価 (฿) * 日本向け</Label>
+                <Input
+                  type="number"
+                  value={form.price}
+                  onChange={(e) => setForm({ ...form, price: e.target.value })}
+                  placeholder="1000"
+                  min="1"
+                  required
+                />
+              </div>
+              <div>
+                <Label icon={Tag} color="text-red-500">セール価格 (฿)</Label>
+                <Input
+                  type="number"
+                  value={form.sale_price}
+                  onChange={(e) => setForm({ ...form, sale_price: e.target.value })}
+                  placeholder="空欄=通常価格"
+                  min="1"
+                  ring="focus:ring-red-400"
+                />
+              </div>
             </div>
             <div>
-              <Label icon={Tag} color="text-red-500">セール価格 (฿)</Label>
+              <Label icon={Banknote} color="text-blue-500">タイ向け価格 (฿)</Label>
               <Input
                 type="number"
-                value={form.sale_price}
-                onChange={(e) => setForm({ ...form, sale_price: e.target.value })}
-                placeholder="空欄=通常価格"
-                min="1"
-                ring="focus:ring-red-400"
+                value={form.thai_price}
+                onChange={(e) => setForm({ ...form, thai_price: e.target.value })}
+                placeholder="タイ人向け表示価格（任意）"
+                min="0"
+                ring="focus:ring-blue-400"
               />
             </div>
           </div>
