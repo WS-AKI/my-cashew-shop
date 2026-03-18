@@ -2,6 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "main": "index.js",
   "name": "samsian-coming-soon",
+  "account_id": "dfa105fd4550176906343cc021a144ec",
   "compatibility_date": "2024-12-30",
   "compatibility_flags": [
     "nodejs_compat"
