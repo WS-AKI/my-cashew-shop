@@ -49,6 +49,7 @@ function generateHTML() {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@200;300;400&family=Inter:wght@200;300;400&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * {
       margin: 0;
@@ -227,6 +228,65 @@ function generateHTML() {
       margin-top: 2rem;
     }
     
+    /* Bar Chart Styles */
+    .chart-container {
+      max-width: 600px;
+      margin: 4rem auto 0;
+      padding: 0 1rem;
+    }
+    
+    .chart-title {
+      font-size: clamp(0.75rem, 1.5vw, 0.9rem);
+      color: rgba(255, 255, 255, 0.6);
+      letter-spacing: 0.1em;
+      margin-bottom: 2rem;
+      text-align: left;
+      font-weight: 300;
+    }
+    
+    .chart-item {
+      margin-bottom: 1.5rem;
+    }
+    
+    .chart-label {
+      font-size: clamp(0.7rem, 1.2vw, 0.85rem);
+      color: rgba(255, 255, 255, 0.7);
+      margin-bottom: 0.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      letter-spacing: 0.05em;
+    }
+    
+    .chart-bar-container {
+      position: relative;
+      width: 100%;
+      height: 2px;
+      background-color: rgba(255, 255, 255, 0.1);
+      border-radius: 1px;
+      overflow: hidden;
+    }
+    
+    .chart-bar {
+      height: 100%;
+      border-radius: 1px;
+      transition: width 0.6s ease-out;
+    }
+    
+    .chart-bar-white {
+      background-color: rgba(255, 255, 255, 0.4);
+    }
+    
+    .chart-bar-pink-gold {
+      background-color: var(--pink-gold);
+    }
+    
+    .chart-value {
+      font-size: clamp(0.65rem, 1vw, 0.75rem);
+      color: rgba(255, 255, 255, 0.5);
+      margin-left: 0.5rem;
+    }
+    
     /* Spacing and Typography */
     .spacer {
       height: 4rem;
@@ -262,8 +322,7 @@ function generateHTML() {
     <div class="hero-background"></div>
     <div class="hero-content">
       <h1 class="hero-title serif">
-        太陽の恵みか、それとも防壁か。<br>
-        アジア初の生ビタミンCエリクサー、誕生。
+        アジア初。食べるアンチエイジング。
       </h1>
       <p class="hero-subtitle sans-serif">Asian First. Edible Anti-Aging.</p>
     </div>
@@ -273,18 +332,46 @@ function generateHTML() {
   <section class="section">
     <div class="concept-text serif">
       <p>
-        ビタミンC（オレンジの5倍）。<br>
-        抗酸化（ポリフェノール）。<br>
-        収穫後24時間で消える幻の果実。
-      </p>
-      <p style="margin-top: 2rem; color: var(--pink-gold);">
-        カシューアップル。
+        オレンジの5倍の天然ビタミンC。<br>
+        そして、強力な抗酸化作用を持つポリフェノール。<br>
+        収穫後24時間で失われる幻の果実『カシューアップル』を、最も美しい形で閉じ込めました。<br>
+        現在、究極の美味しさを求めてレシピを最終調整中。
       </p>
     </div>
     
-    <div class="tuning-note sans-serif">
-      味を極限までチューニング中。<br>
-      Meticulously tuning for ultimate perfection.
+    <!-- Bar Chart -->
+    <div class="chart-container">
+      <div class="chart-title sans-serif">天然ビタミンC含有量 (100gあたり)</div>
+      
+      <div class="chart-item">
+        <div class="chart-label">
+          <span>オレンジ</span>
+          <span class="chart-value">40mg</span>
+        </div>
+        <div class="chart-bar-container">
+          <div class="chart-bar chart-bar-white" style="width: 20%;"></div>
+        </div>
+      </div>
+      
+      <div class="chart-item">
+        <div class="chart-label">
+          <span>レモン</span>
+          <span class="chart-value">50mg</span>
+        </div>
+        <div class="chart-bar-container">
+          <div class="chart-bar chart-bar-white" style="width: 25%;"></div>
+        </div>
+      </div>
+      
+      <div class="chart-item">
+        <div class="chart-label">
+          <span>カシューアップル</span>
+          <span class="chart-value">200mg</span>
+        </div>
+        <div class="chart-bar-container">
+          <div class="chart-bar chart-bar-pink-gold" style="width: 100%;"></div>
+        </div>
+      </div>
     </div>
   </section>
   
@@ -292,13 +379,8 @@ function generateHTML() {
   <section class="final-section">
     <h2 class="final-title serif">
       2026年 初夏。<br>
-      バンコクにて極秘裏にベールを脱ぐ。
+      バンコクにて、限定200個のみ発表。
     </h2>
-    <p class="final-text sans-serif">
-      Coming Summer 2026.<br>
-      Only 200 crafted.<br>
-      Invitation Only.
-    </p>
   </section>
 </body>
 </html>`;
