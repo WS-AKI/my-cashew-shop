@@ -54,7 +54,8 @@
 
 1. Cloudflare ダッシュボード → **Workers & Pages** → **Connect to Git**。
 2. 同じリポジトリを **2 回** 接続し、プロジェクト名を分ける（例: `cashew-ja` / `cashew-th`）。
-3. 各プロジェクトの **Settings → Environment variables** で下記を設定する。
+3. 各プロジェクトの **Settings → Builds & deployments** で **Build command** を **`npm run build:opennext-pages`** に設定する（`npx opennextjs-cloudflare build` のままだと「ASSETS is reserved」でビルド失敗する）。
+4. 各プロジェクトの **Settings → Environment variables** で下記を設定する。
 
 | 変数名 | 日本向けプロジェクト | タイ向けプロジェクト |
 |---|---|---|
@@ -65,9 +66,9 @@
 | `LINE_CHANNEL_ACCESS_TOKEN` | 共通 | 共通 |
 | `LINE_USER_ID` | 共通 | 共通 |
 
-4. **DB**: `docs/add-orders-audience-column.sql` を Supabase で実行し、`orders.audience` を追加。
-5. 既存商品にタイ向け価格が未設定の場合、タイ向けサイトでは `thai_price` が 0 または null になるため、**管理画面でタイ向け価格（商品・バリアント）を入力**すること。
-6. ローカル開発では `.env.local` に `NEXT_PUBLIC_AUDIENCE=ja`（または `th`）を書いて切り替える。
+5. **DB**: `docs/add-orders-audience-column.sql` を Supabase で実行し、`orders.audience` を追加。
+6. 既存商品にタイ向け価格が未設定の場合、タイ向けサイトでは `thai_price` が 0 または null になるため、**管理画面でタイ向け価格（商品・バリアント）を入力**すること。
+7. ローカル開発では `.env.local` に `NEXT_PUBLIC_AUDIENCE=ja`（または `th`）を書いて切り替える。
 
 ### ビルド設定（必須・404 対策）
 
@@ -75,11 +76,12 @@
 
 | 設定項目 | 値 |
 |----------|-----|
-| **Build command** | `npx opennextjs-cloudflare build`（または `npm run build:opennext`） |
+| **Build command** | **`npm run build:opennext-pages`**（推奨）または `npx opennextjs-cloudflare build`。Pages 上では `CF_PAGES=1` のため wrangler が Pages 用スキーマで検証し「ASSETS is reserved」で失敗するため、**必ず** `build:opennext-pages`（内部で `CF_PAGES=0` を指定）を使うこと。 |
 | **Build output directory** | （Pages の Git 連携の場合は OpenNext の仕様に従う。Wrangler でデプロイする場合は `.open-next` を成果物として使用） |
 
 - **日本向けだけ動いてタイ向けが 404 になる場合**:
   1. **タイ用プロジェクトのビルドコマンド**が上記になっているか確認。プリセット「Next.js」のまま（`npx @cloudflare/next-on-pages@1`）だと別アダプタになり、出力形式が違うため 404 になりやすい。
   2. **環境変数**を日本向けと同じくタイ用プロジェクトにも設定する（とくに `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`）。未設定だとビルドやランタイムで失敗し、結果 404 になることがある。
   3. **デプロイ方法**: OpenNext は Wrangler でデプロイする想定。Git 連携の場合は「Cloudflare Workers」の CI/CD を使うか、ビルド後に `npx wrangler deploy`（または `npm run deploy`）が実行されるようにする。Pages の「静的サイト用」ビルド出力だけでは Worker が動かない。
-- **wrangler.jsonc**: `services[].service` は `name` と同一にすること（本リポジトリでは `samsian-shop`）。違うと Worker の自己参照が壊れ、ルーティングが 404 になることがある。また **`pages_build_output_dir`** を必ず設定する（値は `.open-next`）。これがないと Cloudflare Pages の Git ビルドが「Wrangler 設定は無効」と判断してスキップし、Worker が動かず 404 になる。
+- **wrangler.jsonc**: `services[].service` は `name` と同一にすること（本リポジトリでは `samsian-shop`）。違うと Worker の自己参照が壊れ、ルーティングが 404 になることがある。
+- **Pages の Git ビルドと OpenNext の相性**: 本プロジェクトは OpenNext（Workers 向け）のため、`wrangler.jsonc` には `ASSETS` バインディングや `images` を使用しています。Cloudflare **Pages** の Git ビルドでは、Pages 用スキーマでこのファイルを検証するため、「ASSETS is reserved」「images: Unexpected fields」でエラーになります。**そのため `pages_build_output_dir` は付けていません**（付けると上記エラーでビルド失敗）。ビルド時は「Wrangler 設定は無効」としてスキップされ、ダッシュボードで指定した **Build command** と **Build output directory（.open-next）** のみが使われます。この状態で Worker が動かず 404 になる場合は、**Workers の「Connect to Git」** で同じリポジトリを接続し、ビルドコマンドに `npx opennextjs-cloudflare build`、デプロイを Workers 側（`npx opennextjs-cloudflare deploy` 相当）で行う方式に切り替えてください。その場合の URL は `xxx.workers.dev` になります。
