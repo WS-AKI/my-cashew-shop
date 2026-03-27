@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+export const runtime = "edge";
+
 const LINE_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN ?? "";
 const LINE_USER_ID = process.env.LINE_USER_ID ?? "";
 
@@ -13,6 +15,7 @@ type OrderItemPayload = {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    const toSafe = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
     const order_id = body.order_id as string | undefined;
     const customer_name = (body.customer_name as string | undefined)?.trim() || "—";
     const customer_phone = (body.customer_phone as string | undefined)?.trim() || "—";
@@ -39,6 +42,26 @@ export async function POST(request: NextRequest) {
     if (!order_id) {
       return NextResponse.json({ error: "Missing order_id" }, { status: 400 });
     }
+
+    const rawAddress = toSafe(body.customer_address);
+    const addressParts = rawAddress
+      .split(",")
+      .map((p) => p.trim())
+      .filter(Boolean);
+    const deliveryName = toSafe(body.customer_name);
+    const deliveryPhone = toSafe(body.customer_phone);
+    const deliveryAddress1 =
+      toSafe(body.customer_address_line1) ||
+      toSafe(body.shipping_address_line1) ||
+      addressParts[0] ||
+      "";
+    const tambon = toSafe(body.tambon) || toSafe(body.subdistrict);
+    const amphoe = toSafe(body.amphoe) || toSafe(body.district);
+    const province = toSafe(body.province);
+    const postalCode = toSafe(body.postal_code) || toSafe(body.zip_code);
+    const deliveryAddress2 =
+      [tambon, amphoe, province, postalCode].filter(Boolean).join(" ") ||
+      (addressParts.length > 1 ? addressParts.slice(1).join(" ") : "");
 
     if (!LINE_TOKEN || !LINE_USER_ID) {
       return NextResponse.json({ ok: true, notified: false });
@@ -70,6 +93,13 @@ export async function POST(request: NextRequest) {
     if (total_amount != null) priceLines.push(`  合計: ฿${total_amount.toLocaleString()}`);
 
     const notesPart = order_notes ? `\n📝 備考\n  ${order_notes}` : "";
+    const shippingCopyBlock = [
+      "【📦 配送用コピペ枠】",
+      deliveryName,
+      deliveryPhone,
+      deliveryAddress1,
+      deliveryAddress2,
+    ].join("\n");
 
     const text = [
       `📩 新規注文 #${shortId}`,
@@ -85,6 +115,8 @@ export async function POST(request: NextRequest) {
       `💴 金額`,
       ...priceLines,
       notesPart,
+      "",
+      shippingCopyBlock,
       "",
       `管理画面でご確認ください。`,
     ]

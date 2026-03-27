@@ -1,17 +1,29 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { ShoppingCart, Package, Star, Plus, Minus, ChevronLeft, ChevronRight } from "lucide-react";
 import { useCart } from "@/context/CartContext";
+import { useAuthSessionOptional } from "@/context/AuthSessionContext";
+import { canPurchaseVipProduct, getProductVipRequiredTier } from "@/lib/loyalty/vip-product-access";
 import { Product, FLAVOR_COLORS, FlavorColor, SetFlavorKey, SetFlavorSelection, SET_FLAVOR_DISPLAY, SaltOption, PriceVariant } from "@/types";
 import { SHOP_TEXT } from "@/lib/shop-config";
 import { useState, useMemo } from "react";
 import ProductReviews from "./ProductReviews";
 import { useAudience } from "@/context/AudienceContext";
+import type { VipTier } from "@/lib/loyalty/sync-loyalty-profile";
 
 const T = SHOP_TEXT.cart;
 const P = SHOP_TEXT.product;
+const V = SHOP_TEXT.vip;
 const ALL_SET_FLAVORS: SetFlavorKey[] = ["original_salt", "original_nosalt", "cheese", "bbq", "nori", "tomyum"];
+
+function tierDisplayName(audience: "ja" | "th", tier: VipTier | null, loggedIn: boolean): string {
+  if (!loggedIn) return V.tierGuest[audience];
+  if (tier === "gold") return V.tierGold[audience];
+  if (tier === "silver") return V.tierSilver[audience];
+  return V.tierNormal[audience];
+}
 
 type Props = { product: Product };
 
@@ -26,10 +38,37 @@ function emptySetFlavors(): SetFlavorSelection {
   return sel;
 }
 
+function readVipPriceCandidate(product: Product, selectedVariant: PriceVariant | null): number | null {
+  const variantAny = selectedVariant as (PriceVariant & {
+    vip_price?: number | null;
+    silver_price?: number | null;
+    member_price?: number | null;
+  }) | null;
+  const productAny = product as Product & {
+    vip_price?: number | null;
+    silver_price?: number | null;
+    member_price?: number | null;
+  };
+  const fromVariant =
+    variantAny?.vip_price ?? variantAny?.silver_price ?? variantAny?.member_price ?? null;
+  const fromProduct =
+    productAny.vip_price ?? productAny.silver_price ?? productAny.member_price ?? null;
+  const n = Number(fromVariant ?? fromProduct);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 export default function ProductCard({ product }: Props) {
   const { addToCart } = useCart();
   const audience = useAudience();
+  const auth = useAuthSessionOptional();
   const [added, setAdded] = useState(false);
+
+  const loggedIn = Boolean(auth?.user);
+  const vipTier = auth?.vipTier ?? null;
+  const canBuyVip = canPurchaseVipProduct(product, vipTier, loggedIn);
+  const vipLocked = !canBuyVip;
+  const requiredTier = getProductVipRequiredTier(product);
+  const tierName = tierDisplayName(audience, vipTier, loggedIn);
 
   const productNamePrimary = audience === "th" && product.name_th ? product.name_th : product.name_ja;
   const productNameSecondary = audience === "th" ? product.name_ja : product.name_th;
@@ -94,6 +133,14 @@ export default function ProductCard({ product }: Props) {
   const discountPct = hasDiscount
     ? Math.round((1 - displayPrice / originalPrice) * 100)
     : 0;
+  const vipPriceFromData = readVipPriceCandidate(product, currentVariant);
+  const vipPriceTeaser =
+    vipPriceFromData ??
+    Math.max(1, Math.floor(displayPrice * (requiredTier === "gold" ? 0.9 : 0.93)));
+  const vipSavingPct = Math.max(
+    1,
+    Math.round((1 - vipPriceTeaser / Math.max(1, displayPrice)) * 100),
+  );
 
   const flavor =
     product.flavor_color && product.flavor_color in FLAVOR_COLORS
@@ -120,9 +167,9 @@ export default function ProductCard({ product }: Props) {
     setTimeout(() => setAdded(false), 2000);
   }
 
-  const canAdd = isSet && setBagCount > 0
-    ? product.stock > 0 && flavorsFull
-    : product.stock > 0;
+  const canAdd =
+    !vipLocked &&
+    (isSet && setBagCount > 0 ? product.stock > 0 && flavorsFull : product.stock > 0);
 
   return (
     <>
@@ -217,6 +264,17 @@ export default function ProductCard({ product }: Props) {
           {isSet && !product.is_promotion && (
             <span className="absolute top-3 right-3 bg-orange-500 text-white text-[11px] font-bold px-2 py-0.5 rounded-full shadow">
               {P.set[audience]}
+            </span>
+          )}
+
+          {requiredTier === "gold" && (
+            <span className="absolute bottom-3 left-3 z-10 text-[9px] font-medium uppercase tracking-[0.2em] text-white/95 bg-stone-900/35 backdrop-blur-sm px-2.5 py-1 rounded-sm border border-white/10">
+              {V.goldRibbon[audience]}
+            </span>
+          )}
+          {requiredTier === "silver" && (
+            <span className="absolute bottom-3 left-3 z-10 text-[9px] font-medium uppercase tracking-[0.2em] text-white/95 bg-slate-700/40 backdrop-blur-sm px-2.5 py-1 rounded-sm border border-white/15">
+              {V.silverRibbon[audience]}
             </span>
           )}
 
@@ -396,15 +454,55 @@ export default function ProductCard({ product }: Props) {
                 </span>
               )}
             </div>
+            {!canBuyVip && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50/80 px-2.5 py-2">
+                <p className="text-[11px] font-semibold text-amber-900">
+                  👑 {audience === "ja" ? "VIP価格" : "ราคา VIP"}: ฿{vipPriceTeaser.toLocaleString()}
+                </p>
+                <p className="text-[10px] text-amber-700/90 mt-0.5">
+                  {vipPriceFromData != null
+                    ? (audience === "ja" ? "会員限定価格を適用可能" : "สามารถใช้ราคาสมาชิกได้")
+                    : (audience === "ja"
+                      ? `VIPでさらに約${vipSavingPct}%OFF（目安）`
+                      : `VIP ลดเพิ่มประมาณ ${vipSavingPct}%`)}
+                </p>
+              </div>
+            )}
+
+            {vipLocked && requiredTier !== "normal" && (
+              <div className="rounded-xl border border-amber-200/60 bg-amber-50/40 px-3 py-3 space-y-2">
+                <p className="text-[11px] sm:text-xs font-light leading-relaxed tracking-wide text-amber-950/65 text-center">
+                  <span className="mr-1" aria-hidden>
+                    🔒
+                  </span>
+                  {requiredTier === "gold" ? V.goldLockLead[audience] : V.silverLockLead[audience]}
+                  <span className="block mt-1.5 text-[10px] text-amber-900/50">
+                    {V.goldLockYouAre[audience]}
+                    <span className="mx-1 font-medium text-amber-900/65">{tierName}</span>
+                    {V.goldLockSuffix[audience]}
+                  </span>
+                </p>
+                {!loggedIn && (
+                  <div className="text-center">
+                    <Link
+                      href="/login"
+                      className="text-[10px] uppercase tracking-[0.2em] text-amber-800/55 hover:text-amber-800 transition-colors border-b border-amber-800/20 hover:border-amber-800/50 pb-0.5"
+                    >
+                      {V.signInForVip[audience]}
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Quantity selector + add to cart */}
-            <div className="flex items-center gap-2">
+            <div className={`flex items-center gap-2 ${vipLocked ? "opacity-45 pointer-events-none" : ""}`}>
               <div className="flex items-center border-2 border-gray-200 rounded-xl overflow-hidden">
                 <button
                   type="button"
                   onClick={() => setQty((q) => Math.max(1, q - 1))}
                   className="px-2.5 py-2 text-gray-500 hover:bg-gray-100 transition-colors"
-                  disabled={qty <= 1}
+                  disabled={qty <= 1 || vipLocked}
                 >
                   <Minus size={14} />
                 </button>
@@ -415,13 +513,14 @@ export default function ProductCard({ product }: Props) {
                   type="button"
                   onClick={() => setQty((q) => Math.min(10, q + 1))}
                   className="px-2.5 py-2 text-gray-500 hover:bg-gray-100 transition-colors"
-                  disabled={qty >= 10}
+                  disabled={qty >= 10 || vipLocked}
                 >
                   <Plus size={14} />
                 </button>
               </div>
 
               <button
+                type="button"
                 onClick={handleAddToCart}
                 disabled={!canAdd}
                 className={`flex-1 py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2

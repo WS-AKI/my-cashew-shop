@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
+export const runtime = "edge";
+
 const LINE_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN ?? "";
 const LINE_USER_ID = process.env.LINE_USER_ID ?? "";
 
@@ -50,9 +52,12 @@ export async function POST(request: NextRequest) {
 
     const supabase = createServerClient(supabaseUrl, supabaseKey, {
       cookies: {
-        getAll() { return []; },
+        getAll() {
+          return [];
+        },
         setAll() {},
       },
+      auth: { detectSessionInUrl: false },
     });
 
     const { data, error } = await supabase

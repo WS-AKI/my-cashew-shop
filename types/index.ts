@@ -1,3 +1,6 @@
+/** 商品の購入に必要な最低VIPランク（DB: products.vip_required_tier） */
+export type VipRequiredTier = "normal" | "silver" | "gold";
+
 export type FlavorColor = "original" | "cheese" | "bbq" | "nori" | "tomyum";
 
 export const FLAVOR_COLORS: Record<
@@ -95,6 +98,13 @@ export type Product = {
   thai_price?: number | null;
   price_variants: PriceVariant[];
   created_at: string;
+  /** 購入に必要な最低ランク。normal = 誰でも可 */
+  vip_required_tier?: VipRequiredTier;
+  /**
+   * @deprecated vip_required_tier === 'gold' と同等。DB移行後は参照のみ。
+   * 新規保存時は vip_required_tier を正とする。
+   */
+  is_gold_exclusive?: boolean;
 };
 
 export type FlavorSelection = Record<FlavorColor, number>;

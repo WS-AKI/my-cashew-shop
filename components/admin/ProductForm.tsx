@@ -3,7 +3,8 @@
 import { useState, useRef, ChangeEvent, FormEvent } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
-import { Product, FlavorColor, FLAVOR_COLORS, PriceVariant } from "@/types";
+import { Product, FlavorColor, FLAVOR_COLORS, PriceVariant, type VipRequiredTier } from "@/types";
+import { getProductVipRequiredTier } from "@/lib/loyalty/vip-product-access";
 import {
   Camera,
   Loader2,
@@ -16,6 +17,7 @@ import {
   Globe,
   ShoppingBag,
   Star,
+  Crown,
   SortAsc,
   FileText,
   Hash,
@@ -53,6 +55,7 @@ type FormData = {
   sizeSalePrices: SizePrices;
   sizeThaiPrices: SizePrices;
   sizeImages: SizeImageUrls;
+  vip_required_tier: VipRequiredTier;
 };
 
 function buildInitialSizePrices(variants?: PriceVariant[]): SizePrices {
@@ -111,6 +114,7 @@ function buildInitialForm(product?: Product): FormData {
       sizeSalePrices: buildInitialSizeSalePrices(),
       sizeThaiPrices: buildInitialSizeThaiPrices(),
       sizeImages: buildInitialSizeImages(),
+      vip_required_tier: "normal",
     };
   }
   return {
@@ -133,6 +137,7 @@ function buildInitialForm(product?: Product): FormData {
     sizeSalePrices: buildInitialSizeSalePrices(product.price_variants),
     sizeThaiPrices: buildInitialSizeThaiPrices(product.price_variants),
     sizeImages: buildInitialSizeImages(product.price_variants),
+    vip_required_tier: getProductVipRequiredTier(product),
   };
 }
 
@@ -462,6 +467,8 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       set_quantity: form.is_set && form.set_quantity ? Math.floor(Number(form.set_quantity)) : null,
       price_variants: finalVariants,
       gallery_urls: galleryUrls,
+      vip_required_tier: form.vip_required_tier,
+      is_gold_exclusive: form.vip_required_tier === "gold",
     };
 
     let dbError;
@@ -878,6 +885,27 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
               ring="focus:ring-gray-400"
             />
           </div>
+        </div>
+
+        {/* VIP 購入ランク */}
+        <div className="rounded-xl border-2 border-violet-200 bg-violet-50/50 p-4">
+          <Label icon={Crown} color="text-violet-600">
+            VIP 購入条件（会員ランク）
+          </Label>
+          <p className="text-xs text-gray-600 mb-2">
+            ストアフロントでは全員に表示されます。購入ボタンのロックはランクで制御されます。
+          </p>
+          <select
+            value={form.vip_required_tier}
+            onChange={(e) =>
+              setForm({ ...form, vip_required_tier: e.target.value as VipRequiredTier })
+            }
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-violet-400"
+          >
+            <option value="normal">誰でも購入可（Normal）</option>
+            <option value="silver">Silver 以上限定</option>
+            <option value="gold">Gold 限定</option>
+          </select>
         </div>
 
         {/* Promotion toggle */}

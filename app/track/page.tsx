@@ -9,16 +9,12 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { DualLanguageLabel } from "@/components/ui/DualLanguageLabel";
 import {
-  Search, Package, CreditCard, Truck, Clock, AlertCircle,
-  Upload, CheckCircle, Loader2, Send, MessageCircle, User, Store,
+  Search, Package, Clock, AlertCircle,
+  Upload, CheckCircle, Loader2, Send, MessageCircle, User, Store, Copy, Check, Clock3,
 } from "lucide-react";
-
-const STEPS = [
-  { key: "pending",         label: { ja: "注文受付",   th: "รับออเดอร์แล้ว" }, icon: Package      },
-  { key: "price_confirmed", label: { ja: "料金確認",   th: "ยืนยันค่าจัดส่ง" }, icon: CreditCard   },
-  { key: "shipping",        label: { ja: "配達中",     th: "กำลังจัดส่ง"     }, icon: Truck        },
-  { key: "delivered",       label: { ja: "配達済み",   th: "จัดส่งแล้ว"      }, icon: CheckCircle  },
-] as const;
+import { useAudience } from "@/context/AudienceContext";
+import OrderProgressBar from "@/components/orders/OrderProgressBar";
+import { normalizeOrderLookupRef, resolveOrderRowForLookup } from "@/lib/order-lookup";
 
 type OrderResult = {
   id: string;
@@ -35,19 +31,6 @@ type Message = {
   created_at: string;
 };
 
-function normalizeStatus(status: string): string {
-  const lower = status.toLowerCase();
-  if (lower === "paid") return "price_confirmed";
-  if (lower === "shipped") return "shipping";
-  return lower;
-}
-
-function statusIndex(status: string): number {
-  const normalized = normalizeStatus(status);
-  const idx = STEPS.findIndex((s) => s.key === normalized);
-  return idx === -1 ? 0 : idx;
-}
-
 export default function TrackPage() {
   return (
     <Suspense fallback={
@@ -61,6 +44,7 @@ export default function TrackPage() {
 }
 
 function TrackContent() {
+  const audience = useAudience();
   const searchParams = useSearchParams();
   const initialId = searchParams.get("id") ?? "";
 
@@ -80,9 +64,23 @@ function TrackContent() {
   const [slipUploading, setSlipUploading] = useState(false);
   const [slipUploaded, setSlipUploaded] = useState(false);
   const [slipError, setSlipError] = useState<string | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
   const slipInputRef = useRef<HTMLInputElement>(null);
+  const [slipAmountInput, setSlipAmountInput] = useState("");
+  const [isOcrRunning, setIsOcrRunning] = useState(false);
+  const [slipOcrDone, setSlipOcrDone] = useState(false);
+  const isMountedRef = useRef(true);
+  const ocrRunIdRef = useRef(0);
 
-  async function fetchOrder(orderId: string) {
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      ocrRunIdRef.current += 1;
+    };
+  }, []);
+
+  async function fetchOrder(rawInput: string) {
     setLoading(true);
     setError(null);
     setOrder(null);
@@ -91,29 +89,52 @@ function TrackContent() {
     setSlipUploaded(false);
     setSlipFile(null);
     setSlipPreview(null);
+    setSlipAmountInput("");
+    setSlipOcrDone(false);
+    setIsOcrRunning(false);
+
+    const norm = normalizeOrderLookupRef(rawInput);
+    if (norm.kind === "invalid") {
+      setError(
+        "注文番号の形式が正しくありません。表示されている番号をそのまま（または # 付き・先頭8桁）で入力してください。\nรูปแบบหมายเลขไม่ถูกต้อง กรุณาคัดลอกจากอีเมลหรือหน้าสั่งซื้อ",
+      );
+      setLoading(false);
+      return;
+    }
 
     try {
       const supabase = createClient();
-      const { data, error: dbErr } = await supabase
-        .from("orders")
-        .select("id, status, total_amount, created_at, slip_image_url")
-        .eq("id", orderId)
-        .maybeSingle();
+      const resolved = await resolveOrderRowForLookup(supabase, norm);
 
-      if (dbErr) throw dbErr;
-      if (!data) {
-        setError("注文が見つかりませんでした。注文番号をご確認ください。\nไม่พบคำสั่งซื้อ กรุณาตรวจสอบหมายเลขคำสั่งซื้อ");
+      if (!resolved.ok) {
+        if (resolved.reason === "not_found") {
+          setError("注文が見つかりませんでした。注文番号をご確認ください。\nไม่พบคำสั่งซื้อ กรุณาตรวจสอบหมายเลขคำสั่งซื้อ");
+          return;
+        }
+        if (resolved.reason === "ambiguous") {
+          setError(
+            "同じ先頭番号に複数の注文が見つかりました。注文完了メールなどに記載の完全な注文番号（UUID）で検索してください。\nพบหลายคำสั่งซื้อที่ตรงกัน กรุณาใช้หมายเลขเต็มจากอีเมล",
+          );
+          return;
+        }
+        if (process.env.NODE_ENV === "development" && resolved.details) {
+          console.error("resolveOrderRowForLookup", resolved.details);
+        }
+        setError("エラーが発生しました。もう一度お試しください。\nเกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง");
         return;
       }
-      setOrder(data);
+
+      const row = resolved.row;
+      setOrder(row);
 
       const { data: msgs } = await supabase
         .from("order_messages")
         .select("id, sender, body, created_at")
-        .eq("order_id", orderId)
+        .eq("order_id", row.id)
         .order("created_at", { ascending: true });
       setMessages((msgs as Message[]) ?? []);
-    } catch {
+    } catch (e) {
+      console.error("fetchOrder", e);
       setError("エラーが発生しました。もう一度お試しください。\nเกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง");
     } finally {
       setLoading(false);
@@ -159,10 +180,82 @@ function TrackContent() {
   function handleSlipChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !file.type.startsWith("image/")) return;
+    ocrRunIdRef.current += 1;
     setSlipFile(file);
     setSlipPreview(URL.createObjectURL(file));
     setSlipError(null);
     setSlipUploaded(false);
+    setSlipOcrDone(false);
+    setSlipAmountInput("");
+    setIsOcrRunning(false);
+  }
+
+  async function tryReadAmountFromSlipImage(file: File, orderTotalBaht: number | null): Promise<number | null> {
+    try {
+      const { createWorker } = await import("tesseract.js");
+      const worker = await createWorker("eng");
+      const { data } = await worker.recognize(file);
+      await worker.terminate();
+      const text = data.text || "";
+      const matches = text.match(/\d[\d,.]*/g) || [];
+      const numbers: number[] = [];
+      for (const m of matches) {
+        const n = Math.round(parseFloat(m.replace(/,/g, "")));
+        if (Number.isFinite(n) && n >= 1 && n <= 9999999) numbers.push(n);
+      }
+      if (numbers.length === 0) return null;
+      if (orderTotalBaht != null) {
+        const closest = numbers.reduce((a, b) =>
+          Math.abs(a - orderTotalBaht) <= Math.abs(b - orderTotalBaht) ? a : b
+        );
+        return closest;
+      }
+      return Math.max(...numbers);
+    } catch {
+      return null;
+    }
+  }
+
+  async function prepareImageForOcr(file: File): Promise<File> {
+    const compressed = await imageCompression(file, {
+      maxWidthOrHeight: 1200,
+      maxSizeMB: 1,
+      initialQuality: 0.88,
+      useWebWorker: true,
+      fileType: "image/jpeg",
+    });
+    if (compressed instanceof File) return compressed;
+    return new File([compressed], `${file.name.replace(/\.[^.]+$/, "")}-ocr.jpg`, {
+      type: "image/jpeg",
+    });
+  }
+
+  async function handleRunSlipOcr() {
+    if (!slipFile || isOcrRunning) return;
+    const runId = ocrRunIdRef.current + 1;
+    ocrRunIdRef.current = runId;
+    const targetFile = slipFile;
+    setIsOcrRunning(true);
+    setSlipOcrDone(false);
+    setSlipError(null);
+    try {
+      const optimized = await prepareImageForOcr(targetFile);
+      if (!isMountedRef.current || runId !== ocrRunIdRef.current) return;
+      const amount = await tryReadAmountFromSlipImage(optimized, order?.total_amount ?? null);
+      if (!isMountedRef.current || runId !== ocrRunIdRef.current) return;
+      if (amount != null) {
+        setSlipAmountInput(String(amount));
+        setSlipOcrDone(true);
+      } else {
+        setSlipError("金額を読み取れませんでした。手動で入力してください。\nไม่สามารถอ่านจำนวนเงินได้ กรุณากรอกด้วยตนเอง");
+      }
+    } catch {
+      if (!isMountedRef.current || runId !== ocrRunIdRef.current) return;
+      setSlipError("OCRの読み取りに失敗しました。手動で入力してください。\nOCR ล้มเหลว กรุณากรอกด้วยตนเอง");
+    } finally {
+      if (!isMountedRef.current || runId !== ocrRunIdRef.current) return;
+      setIsOcrRunning(false);
+    }
   }
 
   async function handleSlipUpload() {
@@ -203,8 +296,25 @@ function TrackContent() {
     }
   }
 
-  const activeIdx = order ? statusIndex(order.status) : -1;
   const hasSlip = !!(order?.slip_image_url);
+  const lineTemplate = order
+    ? `注文番号: ${order.id}\n問い合わせ内容: `
+    : "注文番号: \n問い合わせ内容: ";
+
+  async function copyText(text: string, key: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const el = document.createElement("textarea");
+      el.value = text;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+    }
+    setCopied(key);
+    setTimeout(() => setCopied(null), 1800);
+  }
 
   return (
     <div className="min-h-screen bg-amber-50 flex flex-col">
@@ -229,7 +339,7 @@ function TrackContent() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="注文番号 / Order ID"
+            placeholder="注文番号（#付き・先頭8桁可）/ Order ID"
             className="flex-1 px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-800 placeholder:text-gray-400 focus:ring-2 focus:ring-amber-400 focus:border-transparent transition text-base"
           />
           <button
@@ -260,9 +370,57 @@ function TrackContent() {
                   <div>
                     <p className="text-orange-700 font-bold text-sm">お支払いスリップが未提出です</p>
                     <p className="text-orange-500 text-xs mt-0.5">ยังไม่ได้อัพโหลดสลิปการโอนเงิน</p>
+                    <p className="text-orange-600 text-xs mt-1">
+                      難しい場合は、公式LINEに「注文番号＋スリップ写真」を送ってください。
+                    </p>
                   </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => void copyText(lineTemplate, "lineTemplate")}
+                  className="w-full py-2 rounded-xl border border-green-200 bg-green-50 text-green-700 text-sm font-semibold flex items-center justify-center gap-2"
+                >
+                  {copied === "lineTemplate" ? <Check size={15} /> : <Copy size={15} />}
+                  {copied === "lineTemplate" ? "Copied" : "LINE用にコピー"}
+                </button>
                 {slipError && <p className="text-red-600 text-sm">{slipError}</p>}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    金額（任意）/ จำนวนเงิน (ไม่บังคับ)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    placeholder="例: 150"
+                    value={slipAmountInput}
+                    onChange={(e) => {
+                      setSlipAmountInput(e.target.value);
+                      setSlipOcrDone(false);
+                    }}
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2 text-gray-800"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRunSlipOcr}
+                    disabled={!slipFile || isOcrRunning}
+                    className="mt-2 w-full rounded-xl bg-amber-100 text-amber-800 border border-amber-200 px-4 py-2.5 text-sm font-semibold hover:bg-amber-200 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
+                  >
+                    {isOcrRunning ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin flex-shrink-0" />
+                        読み取り中... / กำลังอ่าน...
+                      </>
+                    ) : (
+                      "スリップの金額を自動入力（任意）"
+                    )}
+                  </button>
+                  {slipOcrDone && slipAmountInput !== "" && (
+                    <p className="mt-1.5 text-gray-600 text-xs">
+                      OCRで金額候補を入力しました。最終確認をお願いします。
+                    </p>
+                  )}
+                </div>
                 {slipPreview && (
                   <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-gray-100">
                     <Image src={slipPreview} alt="Preview" fill className="object-contain" unoptimized />
@@ -291,37 +449,28 @@ function TrackContent() {
               </section>
             )}
             {slipUploaded && (
-              <div className="flex items-center gap-2 text-green-600 font-medium bg-green-50 border border-green-200 rounded-xl p-3">
-                <CheckCircle size={18} />
-                スリップをアップロードしました
-                <span className="text-green-500 text-xs">(อัพโหลดเรียบร้อย)</span>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-green-600 font-medium bg-green-50 border border-green-200 rounded-xl p-3">
+                  <CheckCircle size={18} />
+                  スリップをアップロードしました
+                  <span className="text-green-500 text-xs">(อัพโหลดเรียบร้อย)</span>
+                </div>
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 flex items-start gap-2">
+                  <Clock3 size={16} className="text-amber-700 mt-0.5 shrink-0" />
+                  <p className="text-xs text-amber-900/90 leading-relaxed">
+                    ご入金確認は通常24〜48時間以内（営業日）に行います。確認後、順次発送いたします。
+                    <span className="block text-amber-700/80 mt-0.5" lang="th">
+                      โดยปกติยืนยันการชำระเงินภายใน 24–48 ชั่วโมง (วันทำการ) และจัดส่งตามลำดับ
+                    </span>
+                  </p>
+                </div>
               </div>
             )}
 
             {/* Progress */}
             <div className="bg-white rounded-2xl shadow-sm border border-amber-100 overflow-hidden">
-              <div className="px-4 pt-6 pb-4">
-                <div className="flex items-center justify-between relative">
-                  <div className="absolute top-5 left-[6%] right-[6%] h-0.5 bg-gray-200" />
-                  <div
-                    className="absolute top-5 left-[6%] h-0.5 bg-amber-500 transition-all duration-500"
-                    style={{ width: `${activeIdx * ((100 - 12) / (STEPS.length - 1))}%` }}
-                  />
-                  {STEPS.map((step, i) => {
-                    const Icon = step.icon;
-                    const done = i <= activeIdx;
-                    const current = i === activeIdx;
-                    return (
-                      <div key={step.key} className="relative flex flex-col items-center z-10 w-1/4">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${done ? current ? "bg-amber-500 text-white ring-4 ring-amber-200 scale-110" : "bg-amber-500 text-white" : "bg-gray-200 text-gray-400"}`}>
-                          <Icon size={18} />
-                        </div>
-                        <p className={`mt-2 text-xs font-bold text-center leading-tight ${done ? "text-amber-700" : "text-gray-400"}`}>{step.label.ja}</p>
-                        <p className={`text-[10px] text-center leading-tight ${done ? "text-amber-500" : "text-gray-300"}`}>{step.label.th}</p>
-                      </div>
-                    );
-                  })}
-                </div>
+              <div className="p-4">
+                <OrderProgressBar status={order.status} language={audience} />
               </div>
               <div className="border-t border-amber-100 px-6 py-4 space-y-2 bg-amber-50/50">
                 <div className="flex justify-between text-sm">

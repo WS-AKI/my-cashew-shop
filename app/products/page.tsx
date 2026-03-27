@@ -1,11 +1,14 @@
-import { Suspense } from "react";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import ProductsGrid from "@/app/_components/ProductsGrid";
-import ProductsGridSkeleton from "@/app/_components/ProductsGridSkeleton";
 import { getAudienceFromEnv } from "@/lib/audience";
+import { fetchProductsPublicForAudience } from "@/lib/products-fetch";
+import type { Product } from "@/types";
+import ProductsCatalogClient from "@/app/products/ProductsCatalogClient";
+
+/** ISR: 60 秒ごとに再取得。1000 人同時アクセスでも DB クエリは 1 分に 1 回。 */
+export const revalidate = 60;
 
 const PRODUCTS_PAGE_LABELS = {
   ja: {
@@ -26,9 +29,17 @@ const PRODUCTS_PAGE_LABELS = {
   },
 };
 
-export default function ProductsPage() {
+export default async function ProductsPage() {
   const audience = getAudienceFromEnv();
   const t = PRODUCTS_PAGE_LABELS[audience];
+
+  let initialProducts: Product[] | undefined;
+  let productsLoadError: string | undefined;
+  try {
+    initialProducts = await fetchProductsPublicForAudience(audience);
+  } catch (err) {
+    productsLoadError = err instanceof Error ? err.message : String(err);
+  }
 
   return (
     <div className="min-h-screen bg-amber-50 flex flex-col">
@@ -68,9 +79,18 @@ export default function ProductsPage() {
             </a>
           </nav>
         </div>
-        <Suspense fallback={<ProductsGridSkeleton />}>
-          <ProductsGrid showViewAll={false} />
-        </Suspense>
+        {productsLoadError ? (
+          <div className="text-center py-10">
+            <p className="text-amber-700 font-medium">
+              {audience === "ja"
+                ? "商品の読み込みに失敗しました。ページを再読み込みしてください。"
+                : "โหลดสินค้าไม่สำเร็จ กรุณารีเฟรชหน้า"}
+            </p>
+            <p className="text-amber-500 text-xs mt-2 font-mono">{productsLoadError}</p>
+          </div>
+        ) : (
+          <ProductsCatalogClient products={initialProducts ?? []} audience={audience} />
+        )}
       </main>
       <Footer />
     </div>

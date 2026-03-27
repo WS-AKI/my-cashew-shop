@@ -8,6 +8,19 @@ npm run deploy
 
 このコマンドが **ビルド → デプロイ** をまとめて実行します。
 
+## Cloudflare Workers に必要な環境変数（本番）
+
+デプロイ後に **管理画面・お知らせ・ログイン** が動くには、対象 Worker の **Settings → Variables**（または `wrangler secret put`）で次を揃えてください。
+
+| 変数 | 用途 |
+|------|------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase プロジェクト URL（https） |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | anon public キー |
+| `SUPABASE_SERVICE_ROLE_KEY` | お知らせ保存・画像アップロード・一部 API（**サーバーのみ**） |
+| `ADMIN_PIN` | 注文管理ログイン・お知らせ API・`/api/admin/ping` と**同じ値**（シークレット推奨） |
+
+`wrangler.jsonc` の `vars` に無い変数は、ダッシュボードで設定するか `npx wrangler secret put 変数名` で登録します。`ADMIN_PIN` はコードに埋め込まず、**.env.local と Cloudflare で同じ値**にしてください。
+
 ## よくあるエラーと対処
 
 ### 1. `The entry-point file at ".open-next/worker.js" was not found`

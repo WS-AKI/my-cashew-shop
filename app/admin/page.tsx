@@ -8,6 +8,9 @@ import {
   ImageIcon, MessageCircle, Send, Store, User, Trash2,
   RefreshCw, ChevronDown, Truck, Tag,
 } from "lucide-react";
+import { ADMIN_API_PIN_SESSION_KEY, adminApiPinHeaders } from "@/lib/admin-session";
+import { verifyAdminPinWithServer } from "@/lib/admin-verify-pin-client";
+import { normalizeOrderDbStatus } from "@/lib/order-progress";
 
 // ── フレーバー表示 ─────────────────────────────────────────────────
 const FLAVOR_LABELS: Record<string, { ja: string; th: string }> = {
@@ -38,8 +41,9 @@ function formatMetaFlavors(meta: Record<string, unknown> | null | undefined): st
 }
 
 // ── 定数 ─────────────────────────────────────────────────────────
-const ADMIN_PIN = "607051";
 const PIN_STORAGE_KEY = "admin-unlocked";
+const ORDERS_PAGE_SIZE = 20;
+const ADMIN_FETCH_TIMEOUT_MS = 10000;
 
 const STATUS_CONFIG = {
   pending:         { label: "未確認",   labelTh: "รอตรวจสอบ",      color: "bg-amber-100  text-amber-700   border-amber-300"  },
@@ -56,15 +60,8 @@ const STATUS_OPTIONS = [
 ] as const;
 
 const ALLOWED_STATUSES = ["pending", "price_confirmed", "shipping", "delivered"] as const;
-function normalizeOrderStatus(s: string | undefined | null): "pending" | "price_confirmed" | "shipping" | "delivered" {
-  const val = (s ?? "").toLowerCase();
-  // 旧ステータスの後方互換マッピング
-  if (val === "paid") return "price_confirmed";
-  if (val === "shipped") return "shipping";
-  if ((ALLOWED_STATUSES as readonly string[]).includes(val)) {
-    return val as "pending" | "price_confirmed" | "shipping" | "delivered";
-  }
-  return "pending";
+function normalizeOrderStatus(s: string | undefined | null): (typeof ALLOWED_STATUSES)[number] {
+  return normalizeOrderDbStatus(s);
 }
 
 // ── 型定義 ────────────────────────────────────────────────────────
@@ -93,11 +90,15 @@ type OrderRow = {
   shipping_name?: string | null;
   shipping_phone?: string | null;
   shipping_address?: string | null;
+  order_email?: string | null;
+  order_email_normalized?: string | null;
   order_notes?: string | null;
   total_amount: number;
   discount_amount?: number | null;
   shipping_fee?: number | null;
   status: string;
+  paid_at?: string | null;
+  loyalty_profile_id?: string | null;
   created_at: string;
   slip_image_url?: string | null;
   order_items?: OrderItemRow[];
@@ -127,11 +128,16 @@ function formatDate(iso: string): string {
   return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
+function normalizeEmailQuery(raw: string): string {
+  return raw.trim().toLowerCase();
+}
+
 // ── メインコンポーネント ───────────────────────────────────────────
 export default function AdminPage() {
   const [unlocked, setUnlocked]   = useState(false);
   const [pinInput, setPinInput]   = useState("");
   const [pinError, setPinError]   = useState("");
+  const [pinSubmitting, setPinSubmitting] = useState(false);
   const [orders, setOrders]       = useState<OrderRow[]>([]);
   const [loading, setLoading]     = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -139,54 +145,117 @@ export default function AdminPage() {
   const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
   const [replySending, setReplySending] = useState<string | null>(null);
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
+  const [page, setPage] = useState(0);
+  const [hasNextPage, setHasNextPage] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
+  const [emailQuery, setEmailQuery] = useState("");
 
   useEffect(() => {
-    const saved = typeof window !== "undefined" ? localStorage.getItem(PIN_STORAGE_KEY) : null;
-    queueMicrotask(() => setUnlocked(saved === "1"));
+    if (typeof window === "undefined") return;
+    const saved = localStorage.getItem(PIN_STORAGE_KEY);
+    const apiPin = sessionStorage.getItem(ADMIN_API_PIN_SESSION_KEY);
+    if (saved === "1" && apiPin) {
+      queueMicrotask(() => setUnlocked(true));
+    } else if (saved === "1" && !apiPin) {
+      localStorage.removeItem(PIN_STORAGE_KEY);
+      queueMicrotask(() => setUnlocked(false));
+    }
   }, []);
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     const supabase = createClient();
-    const { data, error } = await supabase
+    const from = page * ORDERS_PAGE_SIZE;
+    const to = from + ORDERS_PAGE_SIZE;
+    let query = supabase
       .from("orders")
       .select(`
         id, user_name, user_phone, address,
         shipping_name, shipping_phone, shipping_address,
+        order_email, order_email_normalized,
         order_notes, total_amount, discount_amount, shipping_fee,
-        status, created_at, slip_image_url,
+        status, paid_at, loyalty_profile_id, created_at, slip_image_url,
         order_items (
           id, order_id, product_id, quantity, unit_price, meta,
           products ( name_ja, name_th, weight_g, flavor_color )
         ),
         order_messages ( id, order_id, sender, body, created_at )
       `)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(from, to);
+    if (emailQuery) {
+      query = query.ilike("order_email_normalized", `%${emailQuery}%`);
+    }
+    const ac = new AbortController();
+    const tid = setTimeout(() => ac.abort(), ADMIN_FETCH_TIMEOUT_MS);
+    const { data, error } = await query.abortSignal(ac.signal);
+    clearTimeout(tid);
 
-    if (!error) setOrders(normalizeOrders((data ?? []) as unknown as RawOrderRow[]));
+    if (!error) {
+      const rows = (data ?? []) as unknown as RawOrderRow[];
+      const hasMore = rows.length > ORDERS_PAGE_SIZE;
+      const pageRows = hasMore ? rows.slice(0, ORDERS_PAGE_SIZE) : rows;
+      setHasNextPage(hasMore);
+      setOrders(normalizeOrders(pageRows));
+    }
     setLoading(false);
-  }, []);
+  }, [page, emailQuery]);
 
   useEffect(() => {
     queueMicrotask(() => { if (unlocked) fetchOrders(); else setLoading(false); });
   }, [unlocked, fetchOrders]);
 
-  function handlePinSubmit(e: React.FormEvent) {
+  async function handlePinSubmit(e: React.FormEvent) {
     e.preventDefault();
     setPinError("");
-    if (pinInput.trim() === ADMIN_PIN) {
-      if (typeof window !== "undefined") localStorage.setItem(PIN_STORAGE_KEY, "1");
+    setPinSubmitting(true);
+    try {
+      const result = await verifyAdminPinWithServer(pinInput);
+      if (!result.ok) {
+        setPinError(result.message);
+        return;
+      }
+      if (typeof window !== "undefined") {
+        localStorage.setItem(PIN_STORAGE_KEY, "1");
+        sessionStorage.setItem(ADMIN_API_PIN_SESSION_KEY, pinInput.trim());
+      }
       setUnlocked(true);
       setPinInput("");
-    } else {
-      setPinError("PINが違います · รหัสผ่านไม่ถูกต้อง");
+    } finally {
+      setPinSubmitting(false);
     }
   }
 
   async function handleStatusChange(orderId: string, newStatus: string) {
     setUpdatingId(orderId);
     const supabase = createClient();
-    await supabase.from("orders").update({ status: newStatus }).eq("id", orderId);
+    const order = orders.find((o) => o.id === orderId);
+    const patch: Record<string, unknown> = { status: newStatus };
+    const paidLikeStatuses = new Set(["price_confirmed", "shipping", "delivered", "paid"]);
+    if (paidLikeStatuses.has(newStatus) && order && !order.paid_at) {
+      patch.paid_at = new Date().toISOString();
+    }
+    await supabase.from("orders").update(patch).eq("id", orderId);
+
+    if (paidLikeStatuses.has(newStatus) && typeof window !== "undefined") {
+      const pin = sessionStorage.getItem(ADMIN_API_PIN_SESSION_KEY);
+      if (pin) {
+        try {
+          await fetch("/api/admin/loyalty/recalculate", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...adminApiPinHeaders(pin),
+            },
+            body: JSON.stringify({ orderId }),
+            credentials: "same-origin",
+          });
+        } catch {
+          /* VIP再計算は補助的。失敗しても注文更新は完了済み */
+        }
+      }
+    }
+
     await fetchOrders();
     setUpdatingId(null);
   }
@@ -217,7 +286,8 @@ export default function AdminPage() {
   function toggleExpand(id: string) {
     setExpandedOrders((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }
@@ -234,7 +304,12 @@ export default function AdminPage() {
             <h1 className="text-xl font-bold text-slate-800">管理者ログイン</h1>
             <p className="text-slate-500 text-sm mt-1">เข้าสู่ระบบจัดการ</p>
           </div>
-          <form onSubmit={handlePinSubmit} className="space-y-4">
+          <div className="bg-slate-50 rounded-xl px-4 py-3 mb-4 text-xs text-slate-500 leading-relaxed">
+            <p>🔑 <strong className="text-slate-700">管理PIN（ADMIN_PIN）</strong> を入力</p>
+            <p className="mt-1">Cloudflare Workers の環境変数 <code className="bg-slate-200 rounded px-1">ADMIN_PIN</code> と同じ値です。<br />
+            ローカル開発中は <code className="bg-slate-200 rounded px-1">.env.local</code> の <code className="bg-slate-200 rounded px-1">ADMIN_PIN</code> の値を入力してください。</p>
+          </div>
+          <form onSubmit={(ev) => void handlePinSubmit(ev)} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">
                 PIN コード · รหัสผ่าน
@@ -249,12 +324,20 @@ export default function AdminPage() {
                 className="w-full border border-slate-200 rounded-xl px-4 py-3 text-center text-xl tracking-widest focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
-            {pinError && <p className="text-red-500 text-sm text-center">{pinError}</p>}
+            {pinError && (
+              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                <p className="text-red-600 text-sm text-center">{pinError}</p>
+                <p className="text-red-400 text-xs text-center mt-1">
+                  Cloudflare の ADMIN_PIN と同じ値を入力してください
+                </p>
+              </div>
+            )}
             <button
               type="submit"
-              className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold transition-colors"
+              disabled={pinSubmitting}
+              className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60 text-white font-bold transition-colors"
             >
-              ログイン · เข้าสู่ระบบ
+              {pinSubmitting ? "確認中…" : "ログイン · เข้าสู่ระบบ"}
             </button>
           </form>
         </div>
@@ -274,23 +357,55 @@ export default function AdminPage() {
     <div className="min-h-screen bg-slate-50 pb-12">
       {/* ページタイトルバー */}
       <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-4">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
+        <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
           <div>
             <h1 className="font-bold text-slate-800 text-lg flex items-center gap-2">
               <ShoppingBag size={20} className="text-emerald-500" />
               注文一覧
               <span className="text-slate-400 font-normal text-sm ml-1">· รายการออเดอร์</span>
             </h1>
-            <p className="text-slate-500 text-xs mt-0.5">全 {orders.length} 件</p>
+            <p className="text-slate-500 text-xs mt-0.5">
+              ページ {page + 1} · {orders.length} 件表示
+            </p>
           </div>
-          <button
-            onClick={fetchOrders}
-            disabled={loading}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-medium transition-colors disabled:opacity-50"
-          >
-            <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
-            更新
-          </button>
+          <div className="flex items-center gap-2">
+            <input
+              type="email"
+              value={emailInput}
+              onChange={(e) => setEmailInput(e.target.value)}
+              placeholder="メール検索 (order_email)"
+              className="w-52 sm:w-64 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+            <button
+              onClick={() => {
+                setPage(0);
+                setEmailQuery(normalizeEmailQuery(emailInput));
+              }}
+              disabled={loading}
+              className="px-3 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              検索
+            </button>
+            <button
+              onClick={() => {
+                setEmailInput("");
+                setPage(0);
+                setEmailQuery("");
+              }}
+              disabled={loading}
+              className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              解除
+            </button>
+            <button
+              onClick={fetchOrders}
+              disabled={loading}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
+              更新
+            </button>
+          </div>
         </div>
       </div>
 
@@ -340,8 +455,9 @@ export default function AdminPage() {
 
         {/* 注文リスト */}
         {!loading && orders.length > 0 && (
-          <ul className="space-y-3">
-            {orders.map((order) => {
+          <>
+            <ul className="space-y-3">
+              {orders.map((order) => {
               const status = normalizeOrderStatus(order.status);
               const statusCfg = STATUS_CONFIG[status];
               const displayName    = order.user_name || order.shipping_name || "—";
@@ -356,8 +472,8 @@ export default function AdminPage() {
               const discount  = order.discount_amount ?? 0;
               const subtotal  = order.total_amount - shipping + discount;
 
-              return (
-                <li key={order.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                return (
+                  <li key={order.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                   {/* ── カードヘッダー ── */}
                   <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 border-b border-slate-100">
                     <div className="flex-1 min-w-0">
@@ -383,6 +499,11 @@ export default function AdminPage() {
                         {displayName}
                         <span className="text-slate-400 font-normal ml-2 text-xs">{displayPhone}</span>
                       </p>
+                      {(order.order_email || order.order_email_normalized) && (
+                        <p className="text-slate-500 text-xs truncate">
+                          {order.order_email ?? order.order_email_normalized}
+                        </p>
+                      )}
                     </div>
 
                     {/* ステータス変更セレクト */}
@@ -584,10 +705,30 @@ export default function AdminPage() {
                       </div>
                     </div>
                   )}
-                </li>
-              );
-            })}
-          </ul>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="mt-6 flex items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={loading || page === 0}
+                className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                前へ
+              </button>
+              <span className="text-xs text-slate-500">Page {page + 1}</span>
+              <button
+                type="button"
+                onClick={() => setPage((p) => p + 1)}
+                disabled={loading || !hasNextPage}
+                className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                次へ
+              </button>
+            </div>
+          </>
         )}
       </div>
     </div>

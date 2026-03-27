@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Package, BarChart3 } from "lucide-react";
+import { LayoutDashboard, Package, BarChart3, Megaphone, Crown } from "lucide-react";
 
 const NAV_ITEMS = [
   {
@@ -24,6 +24,20 @@ const NAV_ITEMS = [
     label: "売上記録",
     labelTh: "ยอดขาย",
     icon: BarChart3,
+    exact: false,
+  },
+  {
+    href: "/admin/announcements",
+    label: "お知らせ",
+    labelTh: "ประกาศ",
+    icon: Megaphone,
+    exact: false,
+  },
+  {
+    href: "/admin/vip",
+    label: "VIP検証",
+    labelTh: "ทดสอบ VIP",
+    icon: Crown,
     exact: false,
   },
 ] as const;

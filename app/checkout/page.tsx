@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useCart } from "@/context/CartContext";
 import { useAudience } from "@/context/AudienceContext";
+import { useAuthSessionOptional } from "@/context/AuthSessionContext";
+import { canPurchaseVipProduct } from "@/lib/loyalty/vip-product-access";
 import { createClient } from "@/lib/supabase/client";
 import { getItemPrice, getItemOriginalPrice, FLAVOR_COLORS, FlavorColor, setFlavorSummary, serializeSetFlavors } from "@/types";
 import Header from "@/components/Header";
@@ -17,12 +19,15 @@ import {
   ChevronRight,
   Tag,
   User,
+  Mail,
   Phone,
   MapPin,
   MessageSquare,
   Loader2,
   AlertCircle,
   ShoppingCart,
+  Upload,
+  Truck,
   Package,
 } from "lucide-react";
 
@@ -30,7 +35,12 @@ const T = SHOP_TEXT.checkout;
 
 type CheckoutForm = {
   name: string;
+  email: string;
   phone: string;
+  addressLine1: string;
+  tambon: string;
+  amphoe: string;
+  province: string;
   /** 地区・区をセットにした1つの選択肢（value） */
   areaDistrict: string;
   condominium: string;
@@ -39,6 +49,8 @@ type CheckoutForm = {
   note: string;
 };
 
+type FormErrors = Partial<Record<keyof CheckoutForm, string>>;
+
 type SupabaseLikeError = {
   code?: string | null;
   message?: string | null;
@@ -46,9 +58,19 @@ type SupabaseLikeError = {
   hint?: string | null;
 };
 
+type VipValidationResponse = {
+  ok?: boolean;
+  blockedProductIds?: string[];
+};
+
 const INITIAL_FORM: CheckoutForm = {
   name: "",
+  email: "",
   phone: "",
+  addressLine1: "",
+  tambon: "",
+  amphoe: "",
+  province: "",
   areaDistrict: "",
   condominium: "",
   roomNumber: "",
@@ -63,7 +85,12 @@ function isCheckoutFormShape(obj: unknown): obj is CheckoutForm {
   const o = obj as Record<string, unknown>;
   return (
     typeof o.name === "string" &&
+    typeof o.email === "string" &&
     typeof o.phone === "string" &&
+    typeof o.addressLine1 === "string" &&
+    typeof o.tambon === "string" &&
+    typeof o.amphoe === "string" &&
+    typeof o.province === "string" &&
     typeof o.areaDistrict === "string" &&
     typeof o.condominium === "string" &&
     typeof o.roomNumber === "string" &&
@@ -109,6 +136,13 @@ function getAreaDistrictLabel(value: string): string {
   return found ? `${found.labelJa} (${found.labelEn})` : "";
 }
 
+function getAreaDistrictParts(value: string): { tambon: string; amphoe: string } {
+  const found = AREA_DISTRICT_OPTIONS.find((o) => o.value === value);
+  if (!found) return { tambon: "", amphoe: "" };
+  const [tambonRaw = "", amphoeRaw = ""] = found.labelEn.split(",").map((s) => s.trim());
+  return { tambon: tambonRaw, amphoe: amphoeRaw };
+}
+
 function generateGuestId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
@@ -132,12 +166,14 @@ function getOrCreateGuestUserId(): string {
 function Field({
   icon: Icon,
   label,
-  required,
+  required = false,
+  error,
   children,
 }: {
   icon: React.ElementType;
   label: React.ReactNode;
   required?: boolean;
+  error?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -145,9 +181,16 @@ function Field({
       <label className="flex items-center gap-1.5 text-sm font-semibold text-gray-700 mb-2">
         <Icon size={15} className="text-amber-500" />
         {label}
-        {required && <span className="text-red-500 ml-0.5">*</span>}
+        <span
+          className={`ml-1 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${
+            required ? "bg-red-50 text-red-600 border border-red-200" : "bg-gray-100 text-gray-500 border border-gray-200"
+          }`}
+        >
+          {required ? "必須" : "任意"}
+        </span>
       </label>
       {children}
+      {error ? <p className="mt-1 text-xs text-red-600">{error}</p> : null}
     </div>
   );
 }
@@ -161,6 +204,7 @@ export default function CheckoutPage() {
   const { items, subtotal, discountRate, discountAmount, total, nextDiscountStep, clearCart } =
     useCart();
   const audience = useAudience();
+  const auth = useAuthSessionOptional();
 
   const shippingFee = getShippingFeeBaht(total);
   const totalWithShipping = total + shippingFee;
@@ -168,6 +212,7 @@ export default function CheckoutPage() {
   const [form, setForm] = useState<CheckoutForm>(INITIAL_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [formErrors, setFormErrors] = useState<FormErrors>({});
 
   useEffect(() => {
     const saved = getSavedCheckoutForm();
@@ -201,37 +246,112 @@ export default function CheckoutPage() {
     );
   }
 
+  function validateCheckoutForm(current: CheckoutForm): FormErrors {
+    const next: FormErrors = {};
+    const phoneDigits = current.phone.replace(/\D/g, "");
+    const postal = current.postalCode.trim();
+    if (!current.email.trim()) next.email = "メールアドレスを入力してください";
+    if (!current.name.trim()) next.name = "名前 (Name) を入力してください";
+    if (!phoneDigits) next.phone = "電話番号を入力してください";
+    if (!current.addressLine1.trim()) next.addressLine1 = "住所1を入力してください";
+    if (!current.tambon.trim()) next.tambon = "区・町を入力してください";
+    if (!current.amphoe.trim()) next.amphoe = "郡・区を入力してください";
+    if (!current.province.trim()) next.province = "都・県を入力してください";
+    if (!postal) {
+      next.postalCode = "郵便番号を入力してください";
+    } else if (!/^\d{5}$/.test(postal)) {
+      next.postalCode = "郵便番号は5桁の数字で入力してください";
+    }
+    return next;
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    const validationErrors = validateCheckoutForm(form);
+    setFormErrors(validationErrors);
+    if (Object.keys(validationErrors).length > 0) {
+      setError("入力内容をご確認ください。赤いメッセージの項目を修正してください。");
+      return;
+    }
 
     setSubmitting(true);
 
     try {
+      const loggedIn = Boolean(auth?.user);
+      const vipTier = auth?.vipTier ?? null;
+      for (const item of items) {
+        if (!canPurchaseVipProduct(item.product, vipTier, loggedIn)) {
+          setError(T.vipCartBlocked[audience]);
+          setSubmitting(false);
+          return;
+        }
+      }
+      // サーバー側で最終VIP検証（クライアント改変対策）
+      const vipCheck = await fetch("/api/checkout/validate-vip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          items: items.map((i) => ({ productId: i.product.id })),
+        }),
+      }).catch(() => null);
+      if (!vipCheck || !vipCheck.ok) {
+        setError(audience === "ja" ? "購入可否の確認に失敗しました。時間をおいて再度お試しください。" : "ตรวจสอบสิทธิ์การซื้อไม่สำเร็จ กรุณาลองใหม่");
+        setSubmitting(false);
+        return;
+      }
+      const vipJson = (await vipCheck.json().catch(() => ({}))) as VipValidationResponse;
+      if (vipJson.ok !== true) {
+        setError(T.vipCartBlocked[audience]);
+        setSubmitting(false);
+        return;
+      }
+
       const trimmedName = form.name.trim() || "";
-      const trimmedPhone = form.phone.trim() || "";
+      const trimmedEmail = form.email.trim() || "";
+      const normalizedEmail = trimmedEmail.toLowerCase();
+      const trimmedPhone = form.phone.replace(/\D/g, "");
+      const areaParts = getAreaDistrictParts(form.areaDistrict);
+      const normalizedAddress1 =
+        form.addressLine1.trim() ||
+        [form.roomNumber.trim(), form.condominium.trim()].filter(Boolean).join(" ");
+      const normalizedTambon = form.tambon.trim() || areaParts.tambon || "";
+      const normalizedAmphoe = form.amphoe.trim() || areaParts.amphoe || "";
+      const normalizedProvince = form.province.trim() || "";
       const trimmedAddress = [
-        form.roomNumber ? `Room ${form.roomNumber}` : "",
-        form.condominium || "",
-        getAreaDistrictLabel(form.areaDistrict),
+        normalizedAddress1,
+        normalizedTambon,
+        normalizedAmphoe,
+        normalizedProvince,
         form.postalCode || "",
       ].filter(Boolean).join(", ") || "";
       const normalizedNote = form.note.trim() || "";
       const guestUserId = getOrCreateGuestUserId();
       const clientOrderId = generateGuestId();
 
+      const commonOrderPayload = {
+        shipping_name: trimmedName,
+        shipping_phone: trimmedPhone,
+        shipping_address: trimmedAddress,
+        user_name: trimmedName,
+        user_phone: trimmedPhone,
+        address: trimmedAddress,
+        order_email: trimmedEmail,
+        order_email_normalized: normalizedEmail,
+        order_notes: normalizedNote,
+        total_amount: totalWithShipping,
+        discount_amount: discountAmount,
+        status: "pending",
+      } as const;
+
       const basePayloads: Record<string, unknown>[] = [
         {
-          shipping_name: trimmedName,
-          shipping_phone: trimmedPhone,
-          shipping_address: trimmedAddress,
-          user_name: trimmedName,
-          user_phone: trimmedPhone,
-          address: trimmedAddress,
-          order_notes: normalizedNote,
-          total_amount: totalWithShipping,
-          discount_amount: discountAmount,
-          status: "pending",
+          ...commonOrderPayload,
+        },
+        {
+          ...commonOrderPayload,
+          order_notes: normalizedNote || null,
         },
         {
           shipping_name: trimmedName,
@@ -240,13 +360,8 @@ export default function CheckoutPage() {
           user_name: trimmedName,
           user_phone: trimmedPhone,
           address: trimmedAddress,
-          total_amount: totalWithShipping,
-          status: "pending",
-        },
-        {
-          shipping_name: trimmedName,
-          shipping_phone: trimmedPhone,
-          shipping_address: trimmedAddress,
+          order_email: trimmedEmail,
+          order_email_normalized: normalizedEmail,
           total_amount: totalWithShipping,
           status: "pending",
         },
@@ -254,6 +369,8 @@ export default function CheckoutPage() {
           user_name: trimmedName,
           user_phone: trimmedPhone,
           address: trimmedAddress,
+          order_email: trimmedEmail,
+          order_email_normalized: normalizedEmail,
           order_notes: normalizedNote,
           total_amount: totalWithShipping,
           discount_amount: discountAmount,
@@ -263,6 +380,8 @@ export default function CheckoutPage() {
           user_name: trimmedName,
           user_phone: trimmedPhone,
           address: trimmedAddress,
+          order_email: trimmedEmail,
+          order_email_normalized: normalizedEmail,
           total_amount: totalWithShipping,
           status: "pending",
         },
@@ -270,10 +389,11 @@ export default function CheckoutPage() {
           user_name: trimmedName,
           user_phone: trimmedPhone,
           address: trimmedAddress,
+          order_email: trimmedEmail,
+          order_email_normalized: normalizedEmail,
           total_amount: totalWithShipping,
         },
         {
-          user_id: guestUserId,
           shipping_name: trimmedName,
           shipping_phone: trimmedPhone,
           shipping_address: trimmedAddress,
@@ -287,9 +407,15 @@ export default function CheckoutPage() {
         },
         {
           user_id: guestUserId,
+          ...commonOrderPayload,
+        },
+        {
+          user_id: guestUserId,
           user_name: trimmedName,
           user_phone: trimmedPhone,
           address: trimmedAddress,
+          order_email: trimmedEmail,
+          order_email_normalized: normalizedEmail,
           total_amount: totalWithShipping,
           status: "pending",
         },
@@ -419,6 +545,7 @@ export default function CheckoutPage() {
           body: JSON.stringify({
             order_id: orderId,
             customer_name: trimmedName,
+            customer_email: trimmedEmail || null,
             customer_phone: trimmedPhone,
             customer_address: trimmedAddress,
             order_notes: normalizedNote || null,
@@ -594,37 +721,153 @@ export default function CheckoutPage() {
               </div>
             )}
 
-            <Field icon={User} label={<DualLanguageLabel primary={T.name[audience]} secondary={T.name[audience === "ja" ? "th" : "ja"]} />}>
+            <Field
+              icon={Mail}
+              label={<DualLanguageLabel primary={audience === "ja" ? "メールアドレス" : "อีเมล"} secondary={audience === "ja" ? "อีเมล" : "メールアドレス"} />}
+              required
+              error={formErrors.email}
+            >
+              <input
+                type="email"
+                value={form.email}
+                onChange={(e) => {
+                  setForm({ ...form, email: e.target.value });
+                  if (formErrors.email) setFormErrors((prev) => ({ ...prev, email: undefined }));
+                }}
+                placeholder="name@example.com"
+                className={inputClass}
+                autoComplete="email"
+                required
+              />
+            </Field>
+
+            <Field icon={User} label="名前 (Name)" required error={formErrors.name}>
               <input
                 type="text"
                 value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="Your name"
+                onChange={(e) => {
+                  setForm({ ...form, name: e.target.value });
+                  if (formErrors.name) setFormErrors((prev) => ({ ...prev, name: undefined }));
+                }}
+                placeholder="例: Taro Yamada (アルファベット推奨)"
                 className={inputClass}
                 autoComplete="name"
               />
             </Field>
 
-            <Field icon={Phone} label={<DualLanguageLabel primary={T.phone[audience]} secondary={T.phone[audience === "ja" ? "th" : "ja"]} />}>
-              <input
-                type="tel"
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                placeholder="08x-xxx-xxxx"
-                className={inputClass}
-                autoComplete="tel"
-                inputMode="tel"
-              />
-            </Field>
-
             <Field icon={MapPin} label={<DualLanguageLabel primary={T.address[audience]} secondary={T.address[audience === "ja" ? "th" : "ja"]} />}>
               <div className="space-y-2">
+                <div>
+                  <p className="mb-1 text-xs font-semibold text-gray-600 flex items-center gap-1.5">
+                    住所1（番地・建物・Soi・道路）
+                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold bg-red-50 text-red-600 border border-red-200">必須</span>
+                  </p>
+                  <input
+                    type="text"
+                    value={form.addressLine1}
+                    onChange={(e) => {
+                      setForm({ ...form, addressLine1: e.target.value });
+                      if (formErrors.addressLine1) setFormErrors((prev) => ({ ...prev, addressLine1: undefined }));
+                    }}
+                    placeholder="Room 123, Waterford Condo, 50/1 Soi Sukhumvit 39"
+                    className={inputClass}
+                    autoComplete="address-line1"
+                  />
+                  {formErrors.addressLine1 ? <p className="mt-1 text-xs text-red-600">{formErrors.addressLine1}</p> : null}
+                </div>
+
+                <div>
+                  <p className="mb-1 text-xs font-semibold text-gray-600 flex items-center gap-1.5">
+                    区・町 (Sub-district / แขวง/ตำบล)
+                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold bg-red-50 text-red-600 border border-red-200">必須</span>
+                  </p>
+                  <input
+                    type="text"
+                    value={form.tambon}
+                    onChange={(e) => {
+                      setForm({ ...form, tambon: e.target.value });
+                      if (formErrors.tambon) setFormErrors((prev) => ({ ...prev, tambon: undefined }));
+                    }}
+                    placeholder="区・町 (Sub-district / แขวง/ตำบล)"
+                    className={inputClass}
+                    autoComplete="address-level3"
+                  />
+                  {formErrors.tambon ? <p className="mt-1 text-xs text-red-600">{formErrors.tambon}</p> : null}
+                </div>
+
+                <div>
+                  <p className="mb-1 text-xs font-semibold text-gray-600 flex items-center gap-1.5">
+                    郡・区 (District / เขต/อำเภอ)
+                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold bg-red-50 text-red-600 border border-red-200">必須</span>
+                  </p>
+                  <input
+                    type="text"
+                    value={form.amphoe}
+                    onChange={(e) => {
+                      setForm({ ...form, amphoe: e.target.value });
+                      if (formErrors.amphoe) setFormErrors((prev) => ({ ...prev, amphoe: undefined }));
+                    }}
+                    placeholder="郡・区 (District / เขต/อำเภอ)"
+                    className={inputClass}
+                    autoComplete="address-level2"
+                  />
+                  {formErrors.amphoe ? <p className="mt-1 text-xs text-red-600">{formErrors.amphoe}</p> : null}
+                </div>
+
+                <div>
+                  <p className="mb-1 text-xs font-semibold text-gray-600 flex items-center gap-1.5">
+                    都・県 (Province / จังหวัด)
+                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold bg-red-50 text-red-600 border border-red-200">必須</span>
+                  </p>
+                  <input
+                    type="text"
+                    value={form.province}
+                    onChange={(e) => {
+                      setForm({ ...form, province: e.target.value });
+                      if (formErrors.province) setFormErrors((prev) => ({ ...prev, province: undefined }));
+                    }}
+                    placeholder="都・県 (Province / จังหวัด)"
+                    className={inputClass}
+                    autoComplete="address-level1"
+                  />
+                  {formErrors.province ? <p className="mt-1 text-xs text-red-600">{formErrors.province}</p> : null}
+                </div>
+
+                <div>
+                  <p className="mb-1 text-xs font-semibold text-gray-600 flex items-center gap-1.5">
+                    郵便番号 (Postal Code / รหัสไปรษณีย์)
+                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold bg-red-50 text-red-600 border border-red-200">必須</span>
+                  </p>
+                  <input
+                    type="text"
+                    value={form.postalCode}
+                    onChange={(e) => {
+                      setForm({ ...form, postalCode: e.target.value });
+                      if (formErrors.postalCode) setFormErrors((prev) => ({ ...prev, postalCode: undefined }));
+                    }}
+                    placeholder="郵便番号 (Postal Code / รหัสไปรษณีย์)"
+                    className={inputClass}
+                    autoComplete="postal-code"
+                    inputMode="numeric"
+                  />
+                  {formErrors.postalCode ? <p className="mt-1 text-xs text-red-600">{formErrors.postalCode}</p> : null}
+                </div>
+
                 <select
                   value={form.areaDistrict}
-                  onChange={(e) => setForm({ ...form, areaDistrict: e.target.value })}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    const parts = getAreaDistrictParts(next);
+                    setForm((prev) => ({
+                      ...prev,
+                      areaDistrict: next,
+                      tambon: prev.tambon || parts.tambon,
+                      amphoe: prev.amphoe || parts.amphoe,
+                    }));
+                  }}
                   className={inputClass}
                 >
-                  <option value="">地区・区を選択してください</option>
+                  <option value="">クイック選択（任意）: 区/町・郡</option>
                   {AREA_DISTRICT_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
                       {opt.labelJa} ({opt.labelEn})
@@ -632,37 +875,29 @@ export default function CheckoutPage() {
                   ))}
                 </select>
                 <p className="text-gray-500 text-xs">
-                  上記にない住所の場合は、下の備考欄に住所をご記入ください。
+                  上のクイック選択は任意です。เลือกด่วนได้ (ไม่บังคับ)
                 </p>
-
-                <input
-                  type="text"
-                  value={form.condominium}
-                  onChange={(e) => setForm({ ...form, condominium: e.target.value })}
-                  placeholder="Condominium / Apartment name（マンション名・ご自由に記入）"
-                  className={inputClass}
-                  autoComplete="address-line1"
-                />
-
-                <input
-                  type="text"
-                  value={form.roomNumber}
-                  onChange={(e) => setForm({ ...form, roomNumber: e.target.value })}
-                  placeholder="部屋番号（ご自由に記入）"
-                  className={inputClass}
-                  autoComplete="off"
-                />
-
-                <input
-                  type="text"
-                  value={form.postalCode}
-                  onChange={(e) => setForm({ ...form, postalCode: e.target.value })}
-                  placeholder="郵便番号（ご自由に記入）"
-                  className={inputClass}
-                  autoComplete="postal-code"
-                  inputMode="numeric"
-                />
               </div>
+            </Field>
+
+            <Field
+              icon={Phone}
+              label={<DualLanguageLabel primary={T.phone[audience]} secondary={T.phone[audience === "ja" ? "th" : "ja"]} />}
+              required
+              error={formErrors.phone}
+            >
+              <input
+                type="tel"
+                value={form.phone}
+                onChange={(e) => {
+                  setForm({ ...form, phone: e.target.value });
+                  if (formErrors.phone) setFormErrors((prev) => ({ ...prev, phone: undefined }));
+                }}
+                placeholder="08x-xxx-xxxx"
+                className={inputClass}
+                autoComplete="tel"
+                inputMode="numeric"
+              />
             </Field>
 
             <Field icon={MessageSquare} label={<DualLanguageLabel primary={T.note[audience]} secondary={T.note[audience === "ja" ? "th" : "ja"]} />}>
@@ -674,6 +909,53 @@ export default function CheckoutPage() {
                 className={`${inputClass} resize-none`}
               />
             </Field>
+
+            <div className="rounded-2xl border border-amber-200 bg-amber-50/80 px-4 py-3 space-y-3">
+              <p className="text-sm font-bold text-amber-900">
+                {audience === "ja" ? "ご注文後の流れ (3ステップ)" : "ขั้นตอนหลังสั่งซื้อ (3 ขั้นตอน)"}
+              </p>
+              <div className="grid gap-2.5">
+                <div className="flex items-start gap-2.5 rounded-xl border border-amber-200/80 bg-white/80 px-3 py-2.5">
+                  <span className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+                    <ShoppingCart size={15} />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-amber-900">
+                      ① {audience === "ja" ? "注文を確定する" : "ยืนยันคำสั่งซื้อ"}
+                    </p>
+                    <p className="text-[11px] text-amber-800/80">
+                      {audience === "ja" ? "Confirm your order" : "Confirm your order"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2.5 rounded-xl border border-amber-200/80 bg-white/80 px-3 py-2.5">
+                  <span className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+                    <Upload size={15} />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-amber-900">
+                      ② {audience === "ja" ? "銀行振込 ＆ スリップ画像のアップロード" : "โอนเงินธนาคาร และอัปโหลดสลิป"}
+                    </p>
+                    <p className="text-[11px] text-amber-800/80">
+                      {audience === "ja" ? "Bank transfer & slip upload" : "Bank transfer & slip upload"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2.5 rounded-xl border border-amber-200/80 bg-white/80 px-3 py-2.5">
+                  <span className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+                    <Truck size={15} />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-amber-900">
+                      ③ {audience === "ja" ? "入金確認 ＆ 商品の発送" : "ยืนยันการชำระเงิน และจัดส่งสินค้า"}
+                    </p>
+                    <p className="text-[11px] text-amber-800/80">
+                      {audience === "ja" ? "Payment confirmation & shipping" : "Payment confirmation & shipping"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             <button
               type="submit"

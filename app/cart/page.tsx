@@ -7,8 +7,9 @@ import { getItemPrice, getItemOriginalPrice, FLAVOR_COLORS, FlavorColor, setFlav
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { DualLanguageLabel } from "@/components/ui/DualLanguageLabel";
-import { SHOP_TEXT } from "@/lib/shop-config";
+import { SHOP_TEXT, FREE_SHIPPING_THRESHOLD_BAHT } from "@/lib/shop-config";
 import { useAudience } from "@/context/AudienceContext";
+import VipGoldProgressHint from "@/components/loyalty/VipGoldProgressHint";
 import { Package, Plus, Minus, Trash2, ChevronRight } from "lucide-react";
 
 const T = SHOP_TEXT.cart;
@@ -54,6 +55,43 @@ export default function CartPage() {
         <h1 className="text-2xl font-extrabold text-amber-950 mb-6">
           <DualLanguageLabel primary={T.title[audience]} secondary={T.title[audience === "ja" ? "th" : "ja"]} />
         </h1>
+
+        <VipGoldProgressHint cartSubtotalBaht={subtotal} />
+
+        {(() => {
+          const remaining = Math.max(0, FREE_SHIPPING_THRESHOLD_BAHT - total);
+          const pct = Math.min(100, Math.round((total / FREE_SHIPPING_THRESHOLD_BAHT) * 100));
+          if (total >= FREE_SHIPPING_THRESHOLD_BAHT) {
+            return (
+              <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50/90 px-4 py-3">
+                <p className="text-sm font-semibold text-emerald-900">
+                  <DualLanguageLabel
+                    primary={T.freeShippingUnlocked[audience]}
+                    secondary={T.freeShippingUnlocked[audience === "ja" ? "th" : "ja"]}
+                  />
+                </p>
+              </div>
+            );
+          }
+          const msgJa = T.freeShippingProgress.ja.replace("{remaining}", remaining.toLocaleString());
+          const msgTh = T.freeShippingProgress.th.replace("{remaining}", remaining.toLocaleString());
+          return (
+            <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50/90 px-4 py-3 space-y-2">
+              <p className="text-sm font-semibold text-amber-900">
+                <DualLanguageLabel
+                  primary={audience === "ja" ? msgJa : msgTh}
+                  secondary={audience === "ja" ? msgTh : msgJa}
+                />
+              </p>
+              <div className="h-2 rounded-full bg-amber-200/80 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-amber-500 transition-[width] duration-300"
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+            </div>
+          );
+        })()}
 
         <ul className="space-y-4">
           {items.map((item) => {

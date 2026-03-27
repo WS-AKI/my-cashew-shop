@@ -6,7 +6,7 @@ import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import imageCompression from "browser-image-compression";
 import { createClient } from "@/lib/supabase/client";
-import { CheckCircle, ChevronRight, Copy, Check, Building2, Upload, Loader2, FileText, Search } from "lucide-react";
+import { CheckCircle, ChevronRight, Copy, Check, Building2, Upload, Loader2, FileText, Search, Mail, Clock3, MessageCircle } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { DualLanguageLabel } from "@/components/ui/DualLanguageLabel";
@@ -46,8 +46,19 @@ export default function OrderSuccessContent() {
   const slipInputRef = useRef<HTMLInputElement>(null);
   const [qrImageError, setQrImageError] = useState(false);
   const [qrTriedFallback, setQrTriedFallback] = useState(false);
-  const [slipOcrReading, setSlipOcrReading] = useState(false);
+  const [isOcrRunning, setIsOcrRunning] = useState(false);
+  const [ocrPhase, setOcrPhase] = useState<"idle" | "preparing" | "reading">("idle");
   const [slipOcrDone, setSlipOcrDone] = useState(false);
+  const isMountedRef = useRef(true);
+  const ocrRunIdRef = useRef(0);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      ocrRunIdRef.current += 1;
+    };
+  }, []);
 
   useEffect(() => {
     if (!orderId) return;
@@ -74,6 +85,9 @@ export default function OrderSuccessContent() {
       setTimeout(() => setCopied(null), 2000);
     });
   };
+  const lineTemplate = orderId
+    ? `注文番号: ${orderId}\n問い合わせ内容: `
+    : "注文番号: \n問い合わせ内容: ";
 
   /** スリップ画像から金額らしき数値を抽出（OCR）。注文合計に近い or 妥当な金額を返す。 */
   async function tryReadAmountFromSlipImage(file: File, orderTotalBaht: number | null): Promise<number | null> {
@@ -104,24 +118,61 @@ export default function OrderSuccessContent() {
     }
   }
 
+  async function prepareImageForOcr(file: File): Promise<File> {
+    const compressed = await imageCompression(file, {
+      maxWidthOrHeight: 1400,
+      maxSizeMB: 1,
+      initialQuality: 0.88,
+      useWebWorker: true,
+      fileType: "image/jpeg",
+    });
+    if (compressed instanceof File) return compressed;
+    return new File([compressed], `${file.name.replace(/\.[^.]+$/, "")}-ocr.jpg`, {
+      type: "image/jpeg",
+    });
+  }
+
   function handleSlipChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !file.type.startsWith("image/")) return;
+    ocrRunIdRef.current += 1;
     setSlipFile(file);
     setSlipPreview(URL.createObjectURL(file));
     setSlipError(null);
     setSlipUploaded(false);
     setSlipOcrDone(false);
     setSlipAmountInput("");
-    setSlipOcrReading(true);
-    void (async () => {
-      const amount = await tryReadAmountFromSlipImage(file, orderTotal);
-      setSlipOcrReading(false);
+    setIsOcrRunning(false);
+  }
+
+  async function handleRunSlipOcr() {
+    if (!slipFile || isOcrRunning) return;
+    const runId = ocrRunIdRef.current + 1;
+    ocrRunIdRef.current = runId;
+    const targetFile = slipFile;
+    setIsOcrRunning(true);
+    setOcrPhase("preparing");
+    setSlipOcrDone(false);
+    try {
+      const optimized = await prepareImageForOcr(targetFile);
+      if (!isMountedRef.current || runId !== ocrRunIdRef.current) return;
+      setOcrPhase("reading");
+      const amount = await tryReadAmountFromSlipImage(optimized, orderTotal);
+      if (!isMountedRef.current || runId !== ocrRunIdRef.current) return;
       if (amount != null) {
         setSlipAmountInput(String(amount));
         setSlipOcrDone(true);
+      } else {
+        setSlipError("金額を読み取れませんでした。手動で金額を入力してください。");
       }
-    })();
+    } catch {
+      if (!isMountedRef.current || runId !== ocrRunIdRef.current) return;
+      setSlipError("OCRの読み取りに失敗しました。手動で金額を入力してください。");
+    } finally {
+      if (!isMountedRef.current || runId !== ocrRunIdRef.current) return;
+      setIsOcrRunning(false);
+      setOcrPhase("idle");
+    }
   }
 
   async function handleSlipUpload() {
@@ -193,6 +244,14 @@ export default function OrderSuccessContent() {
               secondary={slipUploaded ? T.thankYou[audience === "ja" ? "th" : "ja"] : T.thankYouReceived[audience === "ja" ? "th" : "ja"]}
             />
           </p>
+          <div className="mt-4 rounded-xl border border-amber-200 bg-white/90 px-3 py-2.5 text-left">
+            <p className="text-xs text-amber-900/90 leading-relaxed">
+              <DualLanguageLabel
+                primary={T.confirmationEta[audience]}
+                secondary={T.confirmationEta[audience === "ja" ? "th" : "ja"]}
+              />
+            </p>
+          </div>
         </div>
 
         {/* Order number display */}
@@ -226,6 +285,14 @@ export default function OrderSuccessContent() {
                   {copied === "orderId" ? "Copied" : "Copy"}
                 </button>
               </div>
+              <button
+                type="button"
+                onClick={() => handleCopy(lineTemplate, "lineTemplate")}
+                className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-green-50 text-green-700 text-sm font-semibold border border-green-200"
+              >
+                {copied === "lineTemplate" ? <Check size={14} /> : <MessageCircle size={14} />}
+                {copied === "lineTemplate" ? "Copied" : "LINE用にコピー"}
+              </button>
             </div>
           </section>
         )}
@@ -375,7 +442,7 @@ export default function OrderSuccessContent() {
                     กรุณาอัพโหลดสลิปหลังโอนเงิน เพื่อยืนยันการชำระเงิน
                   </p>
                   <p className="text-orange-600 text-xs font-medium pt-1 border-t border-orange-200/70">
-                    サイトからアップロードが難しい場合は、<strong>公式LINEでスリップの写真を送っていただくことも可能</strong>です。フッターの公式LINEからご連絡ください。
+                    難しい場合は、公式LINEに「注文番号＋スリップ写真」を送ってください。
                   </p>
                 </div>
               )}
@@ -388,12 +455,6 @@ export default function OrderSuccessContent() {
                       <DualLanguageLabel primary={T.slipAmountRequired[audience]} secondary={T.slipAmountRequired[audience === "ja" ? "th" : "ja"]} />
                     </span>
                   </label>
-                  {slipOcrReading && (
-                    <p className="text-amber-600 text-sm mb-2 flex items-center gap-2">
-                      <Loader2 size={16} className="animate-spin flex-shrink-0" />
-                      <DualLanguageLabel primary={T.slipOcrReading[audience]} secondary={T.slipOcrReading[audience === "ja" ? "th" : "ja"]} />
-                    </p>
-                  )}
                   <input
                     type="number"
                     min={0}
@@ -403,6 +464,21 @@ export default function OrderSuccessContent() {
                     onChange={(e) => { setSlipAmountInput(e.target.value); setSlipOcrDone(false); }}
                     className="w-full border border-gray-200 rounded-xl px-4 py-2 text-gray-800"
                   />
+                  <button
+                    type="button"
+                    onClick={handleRunSlipOcr}
+                    disabled={!slipFile || isOcrRunning}
+                    className="mt-2 w-full rounded-xl bg-amber-100 text-amber-800 border border-amber-200 px-4 py-2.5 text-sm font-semibold hover:bg-amber-200 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
+                  >
+                    {isOcrRunning ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin flex-shrink-0" />
+                        {ocrPhase === "preparing" ? "画像を最適化中..." : "読み取り中..."}
+                      </>
+                    ) : (
+                      "スリップの金額を自動入力（任意）"
+                    )}
+                  </button>
                   {slipOcrDone && slipAmountInput !== "" && (
                     <p className="mt-1.5 text-gray-600 text-xs flex items-center gap-1">
                       <DualLanguageLabel primary={T.slipAmountOcrHint[audience]} secondary={T.slipAmountOcrHint[audience === "ja" ? "th" : "ja"]} />
@@ -447,6 +523,15 @@ export default function OrderSuccessContent() {
                     <CheckCircle size={20} />
                     アップロード完了
                     <span className="text-green-500 text-xs">(อัพโหลดเรียบร้อย)</span>
+                  </div>
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 flex items-start gap-2">
+                    <Clock3 size={16} className="text-amber-700 mt-0.5 shrink-0" />
+                    <p className="text-xs text-amber-900/90 leading-relaxed">
+                      ご入金確認は通常24〜48時間以内（営業日）に行います。確認後、順次発送いたします。
+                      <span className="block text-amber-700/80 mt-0.5" lang="th">
+                        โดยปกติยืนยันการชำระเงินภายใน 24–48 ชั่วโมง (วันทำการ) และจัดส่งตามลำดับ
+                      </span>
+                    </p>
                   </div>
                   {slipPreview && (
                     <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-gray-100">
@@ -512,6 +597,31 @@ export default function OrderSuccessContent() {
         {/* Post-upload actions or waiting message */}
         {slipUploaded ? (
           <div className="space-y-4">
+            <section className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 px-4 py-4 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-white text-amber-700 shadow-sm">
+                  <Mail size={18} />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-amber-950">
+                    同じメールで会員ログインできます
+                    <span className="block text-xs font-normal text-amber-800/60" lang="th">
+                      เข้าสู่ระบบสมาชิกด้วยอีเมลเดียวกับที่ใช้สั่งซื้อได้
+                    </span>
+                  </p>
+                  <p className="text-[13px] leading-relaxed text-amber-900/70">
+                    初回購入のあとで大丈夫です。ご注文に使ったメールアドレスでサインインすると、VIPランクや会員向け表示が反映されます。
+                  </p>
+                  <Link
+                    href="/login"
+                    className="inline-flex items-center gap-1.5 pt-1 text-sm font-medium text-amber-800 hover:text-amber-900"
+                  >
+                    会員ログインへ
+                    <ChevronRight size={16} />
+                  </Link>
+                </div>
+              </div>
+            </section>
             <Link
               href={`/track?id=${orderId}`}
               className="block w-full py-3 rounded-2xl bg-gray-800 hover:bg-gray-900 text-white font-bold text-center flex items-center justify-center gap-2 border border-gray-700 shadow-sm"

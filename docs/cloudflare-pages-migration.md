@@ -81,10 +81,18 @@ npm install --save-dev wrangler@latest
 
 ## 6. 注意事項
 
-- **Edge Runtime**（`export const runtime = "edge"`）は OpenNext Cloudflare では未対応のため、使用している場合は削除してください。このプロジェクトでは未使用です。
+- **Edge Runtime**（`export const runtime = "edge"`）: OpenNext の対応状況は公式ドキュメントを確認。本リポジトリでは一部 API・ページで `edge` を指定している場合があります。
 - 画像最適化は `wrangler.jsonc` の `images.binding` で有効にしています（必要に応じて R2 等をバインド可能。公式 Howto 参照）。
 - キャッシュを R2 で行う場合は、[OpenNext の Caching ドキュメント](https://opennext.js.org/cloudflare/caching) を参照し、`open-next.config.ts` と `wrangler.jsonc` に R2 バインディングを追加します。
 
 ## 公式LINEのQR画像を差し替える
 
 フッターで表示している公式LINEのQRは `public/line-official-qr.png` です。新しいQRに差し替える場合は、このファイルを新しい画像で**上書き保存**（ファイル名は `line-official-qr.png` のまま）し、コミット・プッシュしてください。
+
+## 7. Workers の CPU 上限（Error 1102 等）と運用
+
+Workers には **1 リクエストあたりの CPU 時間** に上限があります。次を併用すると安定しやすくなります。
+
+- **アプリ側**: 認証まわりは `getUser()` より `getSession()` を優先し、不要な API 往復を避ける。`/api/auth/sync-loyalty-profile` はクライアントでスロットル・実行キュー、サーバーでは同一 isolate 内の短時間リプレイ（`lib/edge-loyalty-sync-coalesce.ts`）でバーストを緩和。
+- **ダッシュボード**: 悪意ある・誤ったクライアントからの連打に対しては **WAF / Rate limiting**（パスや IP 単位）を検討する。コードだけでは isolate をまたいだ完全な制限はできません。
+- **本番**: VIP 検証用のランク強制 API は `ENABLE_ADMIN_LOYALTY_TEST_TOOLS` が無効なら 403（`lib/admin-loyalty-test-guard.ts`）。

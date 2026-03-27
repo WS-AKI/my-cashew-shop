@@ -5,25 +5,49 @@ import { ChevronRight, PackageX } from "lucide-react";
 import { getAudienceFromEnv } from "@/lib/audience";
 import { fetchProductsForAudience } from "@/lib/products-fetch";
 
-type ProductsGridProps = { showViewAll?: boolean };
+type ProductsGridProps = {
+  showViewAll?: boolean;
+  /** 親で既に取得済みのときは再フェッチしない（ホームで announcements と並列取得するため） */
+  initialProducts?: Product[];
+  productsLoadError?: string;
+};
 
-export default async function ProductsGrid({ showViewAll = true }: ProductsGridProps) {
+export default async function ProductsGrid({
+  showViewAll = true,
+  initialProducts,
+  productsLoadError,
+}: ProductsGridProps) {
   const audience = getAudienceFromEnv();
 
   let products: Product[];
-  try {
-    products = await fetchProductsForAudience(audience);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+  if (productsLoadError) {
     return (
       <div className="text-center py-16 px-4">
         <PackageX size={48} className="text-amber-300 mx-auto mb-3" />
         <p className="text-amber-700 font-medium">
           商品の読み込みに失敗しました。ページを再読み込みしてください。
         </p>
-        <p className="text-amber-500 text-xs mt-1 font-mono">{message}</p>
+        <p className="text-amber-500 text-xs mt-1 font-mono">{productsLoadError}</p>
       </div>
     );
+  }
+  if (initialProducts) {
+    products = initialProducts;
+  } else {
+    try {
+      products = await fetchProductsForAudience(audience);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return (
+        <div className="text-center py-16 px-4">
+          <PackageX size={48} className="text-amber-300 mx-auto mb-3" />
+          <p className="text-amber-700 font-medium">
+            商品の読み込みに失敗しました。ページを再読み込みしてください。
+          </p>
+          <p className="text-amber-500 text-xs mt-1 font-mono">{message}</p>
+        </div>
+      );
+    }
   }
   const singleProducts = products.filter((p) => !p.is_set);
   const setProducts = products.filter((p) => p.is_set);

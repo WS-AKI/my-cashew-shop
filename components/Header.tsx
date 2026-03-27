@@ -1,16 +1,31 @@
 "use client";
 
 import Link from "next/link";
-import { ShoppingCart } from "lucide-react";
+import { CircleUserRound, LogIn, LogOut, ShoppingCart } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useAudience } from "@/context/AudienceContext";
+import { useAuthSessionOptional } from "@/context/AuthSessionContext";
+import LoyaltyRankBadge from "@/components/loyalty/LoyaltyRankBadge";
 import { SHOP_TEXT } from "@/lib/shop-config";
 
 const Nav = SHOP_TEXT.nav;
 
+const AUTH_NAV = {
+  ja: { signIn: "会員ログイン", signOut: "ログアウト" },
+  th: { signIn: "เข้าสู่ระบบสมาชิก", signOut: "ออกจากระบบ" },
+} as const;
+
+const AUTH_STATUS = {
+  ja: "ログイン中",
+  th: "เข้าสู่ระบบแล้ว",
+} as const;
+
 export default function Header() {
   const { totalQuantity } = useCart();
   const audience = useAudience();
+  const auth = useAuthSessionOptional();
+  const authNav = AUTH_NAV[audience];
+  const authStatusLabel = AUTH_STATUS[audience];
 
   return (
     <header className="sticky top-0 z-40 bg-amber-50/90 backdrop-blur-md border-b border-amber-100">
@@ -30,7 +45,7 @@ export default function Header() {
         </Link>
 
         {/* ナビ */}
-        <nav className="hidden sm:flex items-center gap-6 text-sm font-medium text-amber-800">
+        <nav className="hidden sm:flex items-center gap-7 text-[13px] font-medium tracking-[0.01em] text-amber-900/80">
           <Link href="/" className="hover:text-amber-600 transition-colors">
             {Nav.home[audience]}
           </Link>
@@ -54,6 +69,49 @@ export default function Header() {
           </Link>
         </nav>
 
+        <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+          {auth && !auth.loading && (
+            <>
+              {auth.user ? (
+                <Link href="/account/vip" aria-label={audience === "ja" ? "VIPページへ" : "ไปยังหน้า VIP"}>
+                  <LoyaltyRankBadge tier={auth.vipTier ?? "normal"} />
+                </Link>
+              ) : null}
+              {auth.user ? (
+                <div className="flex items-center gap-2 sm:gap-2.5">
+                  <div
+                    className="hidden sm:flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1"
+                    aria-label={authStatusLabel}
+                    title={authStatusLabel}
+                  >
+                    <div className="relative">
+                      <CircleUserRound className="h-3.5 w-3.5 text-emerald-700" aria-hidden />
+                      <span className="absolute -right-0.5 -bottom-0.5 h-1.5 w-1.5 rounded-full bg-emerald-500 ring-2 ring-emerald-50" />
+                    </div>
+                    <span className="text-[11px] font-medium text-emerald-700">{authStatusLabel}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void auth.signOut()}
+                    className="flex items-center gap-1.5 text-[11px] sm:text-xs font-medium text-amber-900/50 hover:text-amber-900/80 transition-colors tracking-wide"
+                    aria-label={authNav.signOut}
+                  >
+                    <LogOut className="h-3.5 w-3.5 opacity-70" aria-hidden />
+                    <span className="hidden sm:inline">{authNav.signOut}</span>
+                  </button>
+                </div>
+              ) : (
+                <Link
+                  href="/login"
+                  className="flex items-center gap-1.5 text-[11px] sm:text-xs font-medium text-amber-900/50 hover:text-amber-900/80 transition-colors tracking-wide"
+                >
+                  <LogIn className="h-3.5 w-3.5 opacity-70" aria-hidden />
+                  <span className="hidden sm:inline">{authNav.signIn}</span>
+                </Link>
+              )}
+            </>
+          )}
+
         {/* カートアイコン */}
         <Link href="/cart" className="relative p-2 group">
           <ShoppingCart
@@ -66,6 +124,7 @@ export default function Header() {
             </span>
           )}
         </Link>
+        </div>
       </div>
     </header>
   );

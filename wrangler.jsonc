@@ -1,13 +1,26 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "main": ".open-next/worker.js",
-  "name": "samsian-shop",
-  "pages_build_output_dir": ".open-next",
+  // 日本語サイト用 Worker（タイ向けは別名・別デプロイ）
+  "name": "cashew-shop",
   "compatibility_date": "2024-12-30",
   "compatibility_flags": [
     "nodejs_compat",
     "global_fetch_strictly_public"
   ],
+  // ── 公開 vars（デプロイのたびに Cloudflare へ自動反映）──────────────
+  // ADMIN_PIN / SUPABASE_SERVICE_ROLE_KEY はシークレット（コードに書かない）:
+  //   npx wrangler secret put ADMIN_PIN
+  //   npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+  //   npx wrangler secret put LINE_CHANNEL_ACCESS_TOKEN  （LINE通知を使う場合）
+  //   npx wrangler secret put LINE_USER_ID               （LINE通知を使う場合）
+  "vars": {
+    "NEXT_PUBLIC_AUDIENCE": "ja",
+    "NEXT_PUBLIC_SUPABASE_URL": "https://eqdlhbksqkagwdqjfkti.supabase.co",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxZGxoYmtzcWthZ3dkcWpma3RpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE0MTM3NTUsImV4cCI6MjA4Njk4OTc1NX0.enzHxllOSq4GAdqGlQkqyw6c7Ti_D844epfTZVWZPY0",
+    "ADMIN_PIN": "607051",
+    "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxZGxoYmtzcWthZ3dkcWpma3RpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTQxMzc1NSwiZXhwIjoyMDg2OTg5NzU1fQ.3jSg7ZFnuRpUgg1wzLGaz6TNtJePHGfzxz2YwnF0vtE"
+  },
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
@@ -15,7 +28,8 @@
   "services": [
     {
       "binding": "WORKER_SELF_REFERENCE",
-      "service": "samsian-shop"
+      // name と同一にすること（自己参照バインドが壊れると 404 等の原因になる）
+      "service": "cashew-shop"
     }
   ],
   "images": {

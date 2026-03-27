@@ -18,6 +18,15 @@ export const SHOP_TEXT = {
     decrease: { ja: "減らす", th: "ลด" },
     increase: { ja: "増やす", th: "เพิ่ม" },
     remove: { ja: "削除", th: "ลบ" },
+    /** {remaining} = 残りバーツ（割引後の合計ベース） */
+    freeShippingProgress: {
+      ja: "あと ฿{remaining} で送料無料（合計1,000฿以上）",
+      th: "อีก ฿{remaining} ส่งฟรี (ยอดรวม 1,000 บาทขึ้นไป)",
+    },
+    freeShippingUnlocked: {
+      ja: "この金額で送料無料です。レジへ進みましょう。",
+      th: "ยอดนี้ส่งฟรีแล้ว ไปชำระเงินได้เลย",
+    },
   },
   checkout: {
     title: { ja: "ご注文内容の確認", th: "ยืนยันคำสั่งซื้อ" },
@@ -39,6 +48,24 @@ export const SHOP_TEXT = {
     shippingBasic50: { ja: "送料は基本的に50バーツ", th: "ค่าขนส่งปกติ 50 บาท" },
     shippingFreeOver1000: { ja: "1000バーツ以上で送料無料", th: "ซื้อครบ 1,000 บาท ส่งฟรี" },
     shippingFree: { ja: "送料無料", th: "ส่งฟรี" },
+    vipCartBlocked: {
+      ja: "カートに会員ランクの条件を満たさない商品が含まれています。対象商品を削除するか、ログインのうえランクをご確認ください。",
+      th: "ในตะกร้ามีสินค้าที่ต้องใช้ระดับสมาชิกสูงกว่าที่คุณมี กรุณาลบสินค้าหรือเข้าสู่ระบบและตรวจสอบระดับ",
+    },
+    /** 注文確定前の不安解消（振込フロー） */
+    paymentFlowTitle: { ja: "お支払いの流れ", th: "ขั้นตอนการชำระเงิน" },
+    paymentStep1: {
+      ja: "1. 注文確定 → 表示された口座へお振込み",
+      th: "1. ยืนยันคำสั่งซื้อ → โอนเข้าบัญชีที่แสดง",
+    },
+    paymentStep2: {
+      ja: "2. 振込後、スリップ（振込証明）をアップロード",
+      th: "2. หลังโอน อัพโหลดสลิปโอนเงิน",
+    },
+    paymentStep3: {
+      ja: "3. 確認後、発送のご連絡（平日・混雑時は前後する場合があります）",
+      th: "3. หลังตรวจสอบ แจ้งการจัดส่ง (วันทำการ อาจช้าหากคิวเยอะ)",
+    },
   },
   orderSuccess: {
     /** Before slip upload */
@@ -67,6 +94,11 @@ export const SHOP_TEXT = {
     notePayment: {
       ja: "ご入金確認後、1〜2営業日以内に発送いたします。",
       th: "จัดส่งภายใน 1-2 วันทำการหลังยืนยันการโอน",
+    },
+    /** スリップ提出後〜確認までの目安（不安解消・問い合わせ削減） */
+    confirmationEta: {
+      ja: "入金・スリップの確認は、平日で通常24〜48時間以内を目安に行います（混雑時は遅れる場合があります）。",
+      th: "ตรวจสอบการโอน/สลิป โดยปกติภายใน 24–48 ชม. ในวันทำการ (ช่วงคิวเยอะอาจล่าช้า)",
     },
     /** 注文金額とスリップ金額が一致しない場合 */
     slipAmountMismatch: {
@@ -109,6 +141,36 @@ export const SHOP_TEXT = {
     chooseFlavors: { ja: "味を選んでください", th: "เลือกรส" },
     chooseMoreBags: { ja: "あと", th: "เลือกอีก " },
     chooseMoreBagsSuffix: { ja: "袋選んでください", th: " ถุง" },
+  },
+  /** VIP / ロイヤリティ UI */
+  vip: {
+    silverRibbon: { ja: "SILVER & ABOVE", th: "SILVER ขึ้นไป" },
+    goldRibbon: { ja: "GOLD MEMBERS", th: "GOLD MEMBERS" },
+    silverLockLead: {
+      ja: "シルバー会員以上限定の商品です",
+      th: "สินค้าสำหรับสมาชิกซิลเวอร์ขึ้นไปเท่านั้น",
+    },
+    goldLockLead: {
+      ja: "ゴールド会員限定商品です",
+      th: "สินค้าสำหรับสมาชิกโกลด์เท่านั้น",
+    },
+    goldLockYouAre: { ja: "あなたは現在", th: "คุณเป็นสมาชิก" },
+    goldLockSuffix: { ja: "です。", th: "ในขณะนี้" },
+    tierGuest: { ja: "ゲスト", th: "ผู้เยี่ยมชม" },
+    tierNormal: { ja: "Normal", th: "Normal" },
+    tierSilver: { ja: "Silver", th: "Silver" },
+    tierGold: { ja: "Gold", th: "Gold" },
+    signInForGold: { ja: "会員登録・ログイン", th: "สมัคร / เข้าสู่ระบบ" },
+    signInForVip: { ja: "会員ログインへ", th: "เข้าสู่ระบบสมาชิก" },
+    cartGoldProgress: {
+      ja: "あと {amount} THB で【ゴールド会員】に昇格します",
+      th: "อีก {amount} บาท คุณจะเลื่อนระดับเป็น【สมาชิกโกลด์】",
+    },
+    cartGoldReached: {
+      ja: "このお買い物でゴールド会員の条件を満たす見込みです。",
+      th: "การสั่งซื้อนี้น่าจะครบเงื่อนไขสมาชิกโกลด์",
+    },
+    celebrationCta: { ja: "特典を見る", th: "ดูสิทธิพิเศษ" },
   },
 } as const;
 

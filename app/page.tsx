@@ -1,15 +1,45 @@
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronRight, Leaf, Truck, ShieldCheck } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import HeroCarousel from "@/components/home/HeroCarousel";
+import HeroCarouselDynamic from "@/components/home/HeroCarouselDynamic";
+import AnnouncementPopup from "@/components/home/AnnouncementPopup";
 import ProductsGrid from "@/app/_components/ProductsGrid";
 import ProductsGridSkeleton from "@/app/_components/ProductsGridSkeleton";
 import { getAudienceFromEnv } from "@/lib/audience";
+import { getSupabaseAnonClient } from "@/lib/supabase/anon-client";
+import { fetchProductsPublicForAudience } from "@/lib/products-fetch";
+import type { Product } from "@/types";
 
-/** 商品は Supabase から取得するため、ビルド時ではなくリクエスト時にレンダリングする */
-export const dynamic = "force-dynamic";
+/**
+ * ISR: 60 秒ごとに Supabase を再取得。
+ * 1000 人同時アクセスでも DB クエリは最大 1 分に 2 回。
+ * runtime = "edge" は Swiper で TypeError になるため使わない（API のみ）。
+ */
+export const revalidate = 60;
+
+export const metadata: Metadata = {
+  title: "Samsian Cashew Nuts - タイ産高級カシューナッツ / Premium Thai Cashews",
+  description:
+    "タイ・ウタラディット産の高品質カシューナッツを産地直送。Samsian Cashew Nuts 公式ストアで、単品・セット・VIP特典をチェック。",
+  openGraph: {
+    title: "Samsian Cashew Nuts - タイ産高級カシューナッツ / Premium Thai Cashews",
+    description:
+      "From Uttaradit, Thailand. Premium roasted cashews for Japan & Thailand customers.",
+    images: [
+      // TODO: 後で本番用 OGP 画像へ差し替え
+      { url: "/og-image.jpg", width: 1200, height: 630, alt: "Samsian Cashew Nuts" },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Samsian Cashew Nuts - Premium Thai Cashews",
+    description: "Premium roasted Thai cashews with bilingual shopping support.",
+    images: ["/og-image.jpg"],
+  },
+};
 
 const PAGE_TEXT = {
   ja: {
@@ -71,14 +101,67 @@ const PAGE_TEXT = {
   },
 } as const;
 
-export default function HomePage() {
+type AnnouncementRow = {
+  id: string;
+  title_ja: string | null;
+  body_ja: string | null;
+  title_th: string | null;
+  body_th: string | null;
+  image_url: string | null;
+  display_start: string | null;
+  display_end: string | null;
+  is_active: boolean;
+};
+
+export default async function HomePage() {
   const audience = getAudienceFromEnv();
   const t = PAGE_TEXT[audience];
+  // Cookie 不要の公開クライアント（ISR キャッシュ対応）
+  const supabase = getSupabaseAnonClient();
+  const nowIso = new Date().toISOString();
+
+  const [annResult, productsResult] = await Promise.all([
+    supabase
+      .from("announcements")
+      .select("id,title_ja,body_ja,title_th,body_th,image_url,display_start,display_end,is_active")
+      .eq("is_active", true)
+      .or(`display_start.is.null,display_start.lte.${nowIso}`)
+      .or(`display_end.is.null,display_end.gte.${nowIso}`)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle<AnnouncementRow>(),
+    fetchProductsPublicForAudience(audience).then(
+      (p): { ok: true; products: Product[] } | { ok: false; message: string } => ({
+        ok: true as const,
+        products: p,
+      }),
+      (err): { ok: true; products: Product[] } | { ok: false; message: string } => ({
+        ok: false as const,
+        message: err instanceof Error ? err.message : String(err),
+      }),
+    ),
+  ]);
+
+  const announcement = annResult.data ?? null;
+  const initialProducts = productsResult.ok ? productsResult.products : undefined;
+  const productsLoadError = productsResult.ok ? undefined : productsResult.message;
+  const popupTitle = audience === "ja" ? announcement?.title_ja : announcement?.title_th;
+  const popupBody = audience === "ja" ? announcement?.body_ja : announcement?.body_th;
+  const popupData = announcement && popupTitle && popupBody
+    ? {
+        id: announcement.id,
+        title: popupTitle,
+        body: popupBody,
+        imageUrl: announcement.image_url,
+        from: announcement.display_start ?? undefined,
+        until: announcement.display_end ?? undefined,
+      }
+    : null;
 
   return (
     <div className="min-h-screen bg-amber-50 flex flex-col">
       <Header />
-      <HeroCarousel />
+      <HeroCarouselDynamic />
 
       <main className="flex-1">
         {/* ─── ヒーローセクション ──────────────────────────────── */}
@@ -165,12 +248,37 @@ export default function HomePage() {
           </div>
 
           <Suspense fallback={<ProductsGridSkeleton />}>
-            <ProductsGrid />
+            <ProductsGrid
+              initialProducts={initialProducts}
+              productsLoadError={productsLoadError}
+            />
           </Suspense>
         </section>
       </main>
 
       <Footer />
+
+      {popupData ? (
+        <AnnouncementPopup
+          id={popupData.id}
+          title={popupData.title}
+          body={popupData.body}
+          imageUrl={popupData.imageUrl}
+          displayPeriod={{
+            from: popupData.from,
+            until: popupData.until,
+          }}
+          suppressDurationDays={7}
+          openDelayMs={700}
+          dismissCheckboxLabel={
+            audience === "ja" ? "今後このメッセージを表示しない" : "ไม่แสดงข้อความนี้อีก"
+          }
+          closeButtonLabel={audience === "ja" ? "閉じる" : "ปิด"}
+          overlayDismissAriaLabel={
+            audience === "ja" ? "オーバーレイを閉じる" : "ปิดหน้าต่างแจ้งเตือน"
+          }
+        />
+      ) : null}
     </div>
   );
 }

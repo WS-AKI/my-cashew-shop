@@ -1,40 +1,61 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import "./globals.css";
 import { CartProvider } from "@/context/CartContext";
 import { AudienceProvider } from "@/context/AudienceContext";
+import { AuthSessionProvider } from "@/context/AuthSessionContext";
+import TierCelebrationModal from "@/components/loyalty/TierCelebrationModal";
+import AuthNoticeToast from "@/components/auth/AuthNoticeToast";
 import { getAudienceFromEnv } from "@/lib/audience";
 
-export function generateMetadata(): Metadata {
-  const audience = getAudienceFromEnv();
-  return {
-    title:
-      audience === "ja"
-        ? "ウタラディット産カシューナッツ | 日本語対応・タイ直送"
-        : "เม็ดมะม่วงหิมพานต์อุตรดิตถ์ | Sam Sian Cashew Nuts",
-    description:
-      audience === "ja"
-        ? "タイ・ウタラディット産の希少なオーガニックカシューナッツをローストしたてでお届け。一度食べたら止まらない濃厚な味わい。日本語対応で安心してお買い物いただけます。"
-        : "เม็ดมะม่วงหิมพานต์คั่วสดจากอุตรดิตถ์ ส่งตรงจากแหล่งผลิต รสชาติเข้มข้น อร่อยจนหยุดไม่ได้",
-    keywords:
-      audience === "ja"
-        ? ["タイ", "ウタラディット", "カシューナッツ", "オーガニック", "通販", "日本語"]
-        : ["เม็ดมะม่วงหิมพานต์", "อุตรดิตถ์", "คั่ว", "ออร์แกนิค", "สั่งออนไลน์"],
-    openGraph: {
-      title:
-        audience === "ja"
-          ? "ウタラディット産カシューナッツ | 日本語対応・タイ直送"
-          : "เม็ดมะม่วงหิมพานต์อุตรดิตถ์ | Sam Sian Cashew Nuts",
-      description:
-        audience === "ja"
-          ? "タイ・ウタラディット産の希少なオーガニックカシューナッツをローストしたてでお届け。一度食べたら止まらない濃厚な味わい。日本語対応で安心してお買い物いただけます。"
-          : "เม็ดมะม่วงหิมพานต์คั่วสดจากอุตรดิตถ์ ส่งตรงจากแหล่งผลิต รสชาติเข้มข้น",
-      locale: audience === "ja" ? "ja_JP" : "th_TH",
-    },
-    verification: {
-      google: "C3vNaRlA4kk3jyUqJW8L9l3ZBIM5YumvUZKpnGxZz08",
-    },
-  };
-}
+const SITE_TITLE = "Samsian Cashew Nuts - タイ産高級カシューナッツ / Premium Thai Cashews";
+const SITE_DESCRIPTION =
+  "タイ・ウタラディット産カシューナッツを直送。Samsian Cashew Nuts 公式ストア。Roasted fresh in Thailand, shipped with care to Japan and Thailand customers.";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://cashew-shop.example.com";
+// TODO: 本番公開後にブランド用 OGP 画像へ差し替え（例: /og-image-samsian.jpg）
+const OGP_IMAGE_PATH = "/og-image.jpg";
+
+export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: SITE_TITLE,
+    template: "%s | Samsian Cashew Nuts",
+  },
+  description: SITE_DESCRIPTION,
+  keywords: [
+    "Samsian Cashew Nuts",
+    "Premium Thai Cashews",
+    "タイ産カシューナッツ",
+    "เม็ดมะม่วงหิมพานต์",
+    "Uttaradit cashew",
+    "Thai snacks",
+  ],
+  openGraph: {
+    type: "website",
+    siteName: "Samsian Cashew Nuts",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    locale: "ja_JP",
+    alternateLocale: ["th_TH", "en_US"],
+    images: [
+      {
+        url: OGP_IMAGE_PATH,
+        width: 1200,
+        height: 630,
+        alt: "Samsian Cashew Nuts - Premium Thai Cashews",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: [OGP_IMAGE_PATH],
+  },
+  verification: {
+    google: "C3vNaRlA4kk3jyUqJW8L9l3ZBIM5YumvUZKpnGxZz08",
+  },
+};
 
 export default function RootLayout({
   children,
@@ -46,7 +67,13 @@ export default function RootLayout({
     <html lang={audience === "ja" ? "ja" : "th"}>
       <body className="antialiased">
         <AudienceProvider audience={audience}>
-          <CartProvider>{children}</CartProvider>
+          <AuthSessionProvider>
+            <CartProvider>{children}</CartProvider>
+            <TierCelebrationModal />
+            <Suspense fallback={null}>
+              <AuthNoticeToast />
+            </Suspense>
+          </AuthSessionProvider>
         </AudienceProvider>
       </body>
     </html>

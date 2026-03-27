@@ -28,8 +28,9 @@ import {
   PieChart as PieChartIcon,
   Table2,
 } from "lucide-react";
+import { ADMIN_API_PIN_SESSION_KEY } from "@/lib/admin-session";
+import { verifyAdminPinWithServer } from "@/lib/admin-verify-pin-client";
 
-const ADMIN_PIN = "607051";
 const PIN_STORAGE_KEY = "admin-unlocked";
 
 type PriceVariantRow = {
@@ -254,6 +255,7 @@ export default function AdminSalesPage() {
   const [unlocked, setUnlocked] = useState(false);
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState("");
+  const [pinSubmitting, setPinSubmitting] = useState(false);
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -261,9 +263,15 @@ export default function AdminSalesPage() {
   const [savingKey, setSavingKey] = useState<string | null>(null);
 
   useEffect(() => {
-    const saved =
-      typeof window !== "undefined" ? localStorage.getItem(PIN_STORAGE_KEY) : null;
-    queueMicrotask(() => setUnlocked(saved === "1"));
+    if (typeof window === "undefined") return;
+    const saved = localStorage.getItem(PIN_STORAGE_KEY);
+    const apiPin = sessionStorage.getItem(ADMIN_API_PIN_SESSION_KEY);
+    if (saved === "1" && apiPin) {
+      queueMicrotask(() => setUnlocked(true));
+    } else if (saved === "1" && !apiPin) {
+      localStorage.removeItem(PIN_STORAGE_KEY);
+      queueMicrotask(() => setUnlocked(false));
+    }
   }, []);
 
   const fetchOrders = useCallback(async () => {
@@ -315,16 +323,24 @@ export default function AdminSalesPage() {
     });
   }, [unlocked, fetchOrders]);
 
-  function handlePinSubmit(e: React.FormEvent) {
+  async function handlePinSubmit(e: React.FormEvent) {
     e.preventDefault();
     setPinError("");
-    if (pinInput.trim() === ADMIN_PIN) {
-      if (typeof window !== "undefined")
+    setPinSubmitting(true);
+    try {
+      const result = await verifyAdminPinWithServer(pinInput);
+      if (!result.ok) {
+        setPinError(result.message);
+        return;
+      }
+      if (typeof window !== "undefined") {
         localStorage.setItem(PIN_STORAGE_KEY, "1");
+        sessionStorage.setItem(ADMIN_API_PIN_SESSION_KEY, pinInput.trim());
+      }
       setUnlocked(true);
       setPinInput("");
-    } else {
-      setPinError("รหัสผ่านไม่ถูกต้อง");
+    } finally {
+      setPinSubmitting(false);
     }
   }
 
@@ -407,7 +423,7 @@ export default function AdminSalesPage() {
             <h1 className="text-xl font-bold text-slate-800">売上記録</h1>
             <p className="text-slate-500 text-sm mt-1">ยอดขาย · PINで認証</p>
           </div>
-          <form onSubmit={handlePinSubmit} className="space-y-4">
+          <form onSubmit={(ev) => void handlePinSubmit(ev)} className="space-y-4">
             <input
               type="password"
               inputMode="numeric"
@@ -420,9 +436,10 @@ export default function AdminSalesPage() {
             {pinError && <p className="text-red-500 text-sm text-center">{pinError}</p>}
             <button
               type="submit"
-              className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold transition-colors"
+              disabled={pinSubmitting}
+              className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60 text-white font-bold transition-colors"
             >
-              確認 · เข้าสู่ระบบ
+              {pinSubmitting ? "確認中…" : "確認 · เข้าสู่ระบบ"}
             </button>
           </form>
         </div>
