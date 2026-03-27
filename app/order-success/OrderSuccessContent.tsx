@@ -11,6 +11,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { DualLanguageLabel } from "@/components/ui/DualLanguageLabel";
 import { useAudience } from "@/context/AudienceContext";
+import { useLanguage } from "@/context/LanguageContext";
 import { SHOP_TEXT, BANK_INFO } from "@/lib/shop-config";
 
 const T = SHOP_TEXT.orderSuccess;
@@ -34,6 +35,9 @@ export default function OrderSuccessContent() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get("order") ?? "";
   const audience = useAudience();
+  const { language, t: tLang } = useLanguage();
+  const isEn = language === "en";
+  const os = tLang.orderSuccess;
 
   const [copied, setCopied] = useState<string | null>(null);
   const [orderTotal, setOrderTotal] = useState<number | null>(null);
@@ -260,17 +264,20 @@ export default function OrderSuccessContent() {
             <div className="bg-gray-800 px-4 py-3 flex items-center gap-2">
               <FileText size={20} className="text-white" />
               <span className="text-white font-bold">
-                注文番号
-                <span className="block text-white/70 text-xs font-normal">หมายเลขคำสั่งซื้อ</span>
+                {isEn ? os.orderNumberHeading : "注文番号"}
+                {!isEn && <span className="block text-white/70 text-xs font-normal">หมายเลขคำสั่งซื้อ</span>}
               </span>
             </div>
             <div className="p-4">
               <p className="text-xs text-gray-500 mb-2">
-                この番号を控えてください。注文状況の確認に必要です。
+                {isEn ? os.orderNumberHint : "この番号を控えてください。注文状況の確認に必要です。"}
               </p>
               <p className="text-amber-700 text-sm font-medium mb-2 flex items-center gap-1.5">
                 <Search size={14} />
-                注文後の状況は「<Link href="/track" className="underline hover:text-amber-800">注文状況の確認</Link>」ページでいつでもご確認いただけます。ヘッダー・フッターからもアクセスできます。
+                {isEn
+                  ? <>{os.orderNumberTrackHint} <Link href="/track" className="underline hover:text-amber-800">Track Order</Link></>
+                  : <>注文後の状況は「<Link href="/track" className="underline hover:text-amber-800">注文状況の確認</Link>」ページでいつでもご確認いただけます。ヘッダー・フッターからもアクセスできます。</>
+                }
               </p>
               <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-4 py-3 border border-gray-200">
                 <code className="flex-1 text-sm font-mono text-gray-800 break-all select-all">
@@ -282,7 +289,7 @@ export default function OrderSuccessContent() {
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-100 text-amber-700 text-sm font-medium shrink-0"
                 >
                   {copied === "orderId" ? <Check size={14} /> : <Copy size={14} />}
-                  {copied === "orderId" ? "Copied" : "Copy"}
+                  {copied === "orderId" ? os.copied : os.copyButton}
                 </button>
               </div>
               <button
@@ -291,7 +298,7 @@ export default function OrderSuccessContent() {
                 className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-green-50 text-green-700 text-sm font-semibold border border-green-200"
               >
                 {copied === "lineTemplate" ? <Check size={14} /> : <MessageCircle size={14} />}
-                {copied === "lineTemplate" ? "Copied" : "LINE用にコピー"}
+                {copied === "lineTemplate" ? os.copied : os.copyLineButton}
               </button>
             </div>
           </section>
@@ -374,8 +381,8 @@ export default function OrderSuccessContent() {
                   </p>
                   <p className="text-2xl font-extrabold text-amber-600 mt-0.5">฿{orderTotal.toLocaleString()}</p>
                   <p className="text-xs text-amber-600 mt-1">
-                    スキャン後、この金額を入力してください
-                    <span className="block text-amber-500" lang="th">สแกนแล้วกรอกจำนวนนี้</span>
+                    {isEn ? os.scanAmountHint : "スキャン後、この金額を入力してください"}
+                    {!isEn && <span className="block text-amber-500" lang="th">สแกนแล้วกรอกจำนวนนี้</span>}
                   </p>
                 </div>
               )}
@@ -420,8 +427,8 @@ export default function OrderSuccessContent() {
             <div className="bg-orange-500 px-4 py-3 flex items-center gap-2">
               <Upload size={20} className="text-white" />
               <span className="text-white font-bold">
-                お支払いスリップのアップロード
-                <span className="block text-white/80 text-xs font-normal">อัพโหลดสลิปโอนเงิน (จำเป็น)</span>
+                {isEn ? os.slipUploadHeading : "お支払いスリップのアップロード"}
+                {!isEn && <span className="block text-white/80 text-xs font-normal">อัพโหลดสลิปโอนเงิน (จำเป็น)</span>}
               </span>
             </div>
             <div className="p-4 space-y-4">
@@ -436,13 +443,15 @@ export default function OrderSuccessContent() {
               {!slipUploaded && (
                 <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 space-y-2">
                   <p className="text-orange-700 text-sm font-medium">
-                    お振込後、スリップ（振込証明）をアップロードしてください。
+                    {isEn ? os.slipUploadInstruction : "お振込後、スリップ（振込証明）をアップロードしてください。"}
                   </p>
-                  <p className="text-orange-500 text-xs">
-                    กรุณาอัพโหลดสลิปหลังโอนเงิน เพื่อยืนยันการชำระเงิน
-                  </p>
+                  {!isEn && (
+                    <p className="text-orange-500 text-xs">
+                      กรุณาอัพโหลดสลิปหลังโอนเงิน เพื่อยืนยันการชำระเงิน
+                    </p>
+                  )}
                   <p className="text-orange-600 text-xs font-medium pt-1 border-t border-orange-200/70">
-                    難しい場合は、公式LINEに「注文番号＋スリップ写真」を送ってください。
+                    {isEn ? os.slipUploadLineFallback : "難しい場合は、公式LINEに「注文番号＋スリップ写真」を送ってください。"}
                   </p>
                 </div>
               )}
@@ -473,10 +482,10 @@ export default function OrderSuccessContent() {
                     {isOcrRunning ? (
                       <>
                         <Loader2 size={16} className="animate-spin flex-shrink-0" />
-                        {ocrPhase === "preparing" ? "画像を最適化中..." : "読み取り中..."}
+                        {ocrPhase === "preparing" ? os.slipOcrPreparing : os.slipOcrReading}
                       </>
                     ) : (
-                      "スリップの金額を自動入力（任意）"
+                      os.slipOcrButton
                     )}
                   </button>
                   {slipOcrDone && slipAmountInput !== "" && (
@@ -521,16 +530,18 @@ export default function OrderSuccessContent() {
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 text-green-600 font-medium">
                     <CheckCircle size={20} />
-                    アップロード完了
-                    <span className="text-green-500 text-xs">(อัพโหลดเรียบร้อย)</span>
+                    {isEn ? os.slipUploadDone : "アップロード完了"}
+                    {!isEn && <span className="text-green-500 text-xs">(อัพโหลดเรียบร้อย)</span>}
                   </div>
                   <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 flex items-start gap-2">
                     <Clock3 size={16} className="text-amber-700 mt-0.5 shrink-0" />
                     <p className="text-xs text-amber-900/90 leading-relaxed">
-                      ご入金確認は通常24〜48時間以内（営業日）に行います。確認後、順次発送いたします。
-                      <span className="block text-amber-700/80 mt-0.5" lang="th">
-                        โดยปกติยืนยันการชำระเงินภายใน 24–48 ชั่วโมง (วันทำการ) และจัดส่งตามลำดับ
-                      </span>
+                      {isEn ? os.uploadEta : "ご入金確認は通常24〜48時間以内（営業日）に行います。確認後、順次発送いたします。"}
+                      {!isEn && (
+                        <span className="block text-amber-700/80 mt-0.5" lang="th">
+                          โดยปกติยืนยันการชำระเงินภายใน 24–48 ชั่วโมง (วันทำการ) และจัดส่งตามลำดับ
+                        </span>
+                      )}
                     </p>
                   </div>
                   {slipPreview && (
@@ -566,7 +577,7 @@ export default function OrderSuccessContent() {
                       className="w-full py-4 border-2 border-dashed border-orange-300 rounded-xl text-orange-600 font-medium flex items-center justify-center gap-2"
                     >
                       <Upload size={20} />
-                      スリップを選択 / เลือกสลิป
+                      {isEn ? os.slipSelectButton : "スリップを選択 / เลือกสลิป"}
                     </button>
                   ) : (
                     <button
@@ -578,12 +589,12 @@ export default function OrderSuccessContent() {
                       {slipUploading ? (
                         <>
                           <Loader2 size={20} className="animate-spin" />
-                          アップロード中...
+                          {os.slipUploading}
                         </>
                       ) : (
                         <>
                           <Upload size={20} />
-                          アップロードする
+                          {os.slipUploadButton}
                         </>
                       )}
                     </button>
@@ -604,19 +615,21 @@ export default function OrderSuccessContent() {
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm font-semibold text-amber-950">
-                    同じメールで会員ログインできます
-                    <span className="block text-xs font-normal text-amber-800/60" lang="th">
-                      เข้าสู่ระบบสมาชิกด้วยอีเมลเดียวกับที่ใช้สั่งซื้อได้
-                    </span>
+                    {isEn ? os.memberLoginTitle : "同じメールで会員ログインできます"}
+                    {!isEn && (
+                      <span className="block text-xs font-normal text-amber-800/60" lang="th">
+                        เข้าสู่ระบบสมาชิกด้วยอีเมลเดียวกับที่ใช้สั่งซื้อได้
+                      </span>
+                    )}
                   </p>
                   <p className="text-[13px] leading-relaxed text-amber-900/70">
-                    初回購入のあとで大丈夫です。ご注文に使ったメールアドレスでサインインすると、VIPランクや会員向け表示が反映されます。
+                    {isEn ? os.memberLoginDesc : "初回購入のあとで大丈夫です。ご注文に使ったメールアドレスでサインインすると、VIPランクや会員向け表示が反映されます。"}
                   </p>
                   <Link
                     href="/login"
                     className="inline-flex items-center gap-1.5 pt-1 text-sm font-medium text-amber-800 hover:text-amber-900"
                   >
-                    会員ログインへ
+                    {isEn ? os.memberLoginLink : "会員ログインへ"}
                     <ChevronRight size={16} />
                   </Link>
                 </div>
@@ -627,8 +640,8 @@ export default function OrderSuccessContent() {
               className="block w-full py-3 rounded-2xl bg-gray-800 hover:bg-gray-900 text-white font-bold text-center flex items-center justify-center gap-2 border border-gray-700 shadow-sm"
             >
               <Search size={18} />
-              注文状況を確認する
-              <span className="text-white/70 text-xs">(ตรวจสอบสถานะ)</span>
+              {isEn ? os.trackOrderLink : "注文状況を確認する"}
+              {!isEn && <span className="text-white/70 text-xs">(ตรวจสอบสถานะ)</span>}
             </Link>
             <Link
               href="/#products"

@@ -11,6 +11,7 @@ import { SHOP_TEXT } from "@/lib/shop-config";
 import { useState, useMemo } from "react";
 import ProductReviews from "./ProductReviews";
 import { useAudience } from "@/context/AudienceContext";
+import { useLanguage } from "@/context/LanguageContext";
 import type { VipTier } from "@/lib/loyalty/sync-loyalty-profile";
 
 const T = SHOP_TEXT.cart;
@@ -61,6 +62,7 @@ export default function ProductCard({ product }: Props) {
   const { addToCart } = useCart();
   const audience = useAudience();
   const auth = useAuthSessionOptional();
+  const { language, t: tLang } = useLanguage();
   const [added, setAdded] = useState(false);
 
   const loggedIn = Boolean(auth?.user);
@@ -179,7 +181,7 @@ export default function ProductCard({ product }: Props) {
           aria-live="polite"
           className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-amber-800 text-white font-bold px-6 py-3 rounded-full shadow-lg"
         >
-          {T.added[audience]}
+          {language === "en" ? tLang.product.added : T.added[audience]}
         </div>
       )}
       <div
@@ -457,14 +459,26 @@ export default function ProductCard({ product }: Props) {
             {!canBuyVip && (
               <div className="rounded-xl border border-amber-200 bg-amber-50/80 px-2.5 py-2">
                 <p className="text-[11px] font-semibold text-amber-900">
-                  👑 {audience === "ja" ? "VIP価格" : "ราคา VIP"}: ฿{vipPriceTeaser.toLocaleString()}
+                  👑{" "}
+                  {language === "en"
+                    ? tLang.product.vipPriceLabel
+                    : audience === "ja"
+                    ? "VIP価格"
+                    : "ราคา VIP"}
+                  : ฿{vipPriceTeaser.toLocaleString()}
                 </p>
                 <p className="text-[10px] text-amber-700/90 mt-0.5">
-                  {vipPriceFromData != null
-                    ? (audience === "ja" ? "会員限定価格を適用可能" : "สามารถใช้ราคาสมาชิกได้")
-                    : (audience === "ja"
-                      ? `VIPでさらに約${vipSavingPct}%OFF（目安）`
-                      : `VIP ลดเพิ่มประมาณ ${vipSavingPct}%`)}
+                  {language === "en"
+                    ? vipPriceFromData != null
+                      ? tLang.product.vipMemberPrice
+                      : tLang.product.vipSaving.replace("{pct}", String(vipSavingPct))
+                    : vipPriceFromData != null
+                    ? audience === "ja"
+                      ? "会員限定価格を適用可能"
+                      : "สามารถใช้ราคาสมาชิกได้"
+                    : audience === "ja"
+                    ? `VIPでさらに約${vipSavingPct}%OFF（目安）`
+                    : `VIP ลดเพิ่มประมาณ ${vipSavingPct}%`}
                 </p>
               </div>
             )}
@@ -532,7 +546,11 @@ export default function ProductCard({ product }: Props) {
                   }`}
               >
                 <ShoppingCart size={16} />
-                {added ? `✓ ${T.added[audience]}` : T.add[audience]}
+                {added
+                  ? `✓ ${language === "en" ? tLang.product.added : T.added[audience]}`
+                  : language === "en"
+                  ? tLang.product.addToCart
+                  : T.add[audience]}
               </button>
             </div>
           </div>

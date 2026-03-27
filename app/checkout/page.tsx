@@ -7,6 +7,7 @@ import Image from "next/image";
 import { useCart } from "@/context/CartContext";
 import { useAudience } from "@/context/AudienceContext";
 import { useAuthSessionOptional } from "@/context/AuthSessionContext";
+import { useLanguage } from "@/context/LanguageContext";
 import { canPurchaseVipProduct } from "@/lib/loyalty/vip-product-access";
 import { createClient } from "@/lib/supabase/client";
 import { getItemPrice, getItemOriginalPrice, FLAVOR_COLORS, FlavorColor, setFlavorSummary, serializeSetFlavors } from "@/types";
@@ -121,14 +122,17 @@ function saveCheckoutFormToStorage(form: CheckoutForm): void {
   }
 }
 
-/** 地区名＋区名をセットにした1つのリスト（1回のドロップダウンで選択） */
+/**
+ * 地区名＋区名のリスト（แขวง / เขต）
+ * tambonTh / amphoeTh はタイ語正式名称（クロントーイ×2など同名区の視認性向上のため追加）
+ */
 const AREA_DISTRICT_OPTIONS = [
-  { value: "1", labelJa: "クロンタン・ヌア、ワッタナー", labelEn: "Khlong Tan Nuea, Watthana" },
-  { value: "2", labelJa: "クロントーイ・ヌア、ワッタナー", labelEn: "Khlong Toei Nuea, Watthana" },
-  { value: "3", labelJa: "プラカノン・ヌア、ワッタナー", labelEn: "Phra Khanong Nuea, Watthana" },
-  { value: "4", labelJa: "クロンタン、クロントーイ", labelEn: "Khlong Tan, Khlong Toei" },
-  { value: "5", labelJa: "クロントーイ、クロントーイ", labelEn: "Khlong Toei, Khlong Toei" },
-  { value: "6", labelJa: "プラカノン、クロントーイ", labelEn: "Phra Khanong, Khlong Toei" },
+  { value: "1", labelJa: "クロンタン・ヌア / ワッタナー", labelEn: "Khlong Tan Nuea / Watthana", tambonTh: "คลองตันเหนือ", amphoeTh: "วัฒนา" },
+  { value: "2", labelJa: "クロントーイ・ヌア / ワッタナー", labelEn: "Khlong Toei Nuea / Watthana", tambonTh: "คลองเตยเหนือ", amphoeTh: "วัฒนา" },
+  { value: "3", labelJa: "プラカノン・ヌア / ワッタナー", labelEn: "Phra Khanong Nuea / Watthana", tambonTh: "พระโขนงเหนือ", amphoeTh: "วัฒนา" },
+  { value: "4", labelJa: "クロンタン / クロントーイ区", labelEn: "Khlong Tan / Khlong Toei", tambonTh: "คลองตัน", amphoeTh: "คลองเตย" },
+  { value: "5", labelJa: "クロントーイ / クロントーイ区", labelEn: "Khlong Toei / Khlong Toei", tambonTh: "คลองเตย", amphoeTh: "คลองเตย" },
+  { value: "6", labelJa: "プラカノン / クロントーイ区", labelEn: "Phra Khanong / Khlong Toei", tambonTh: "พระโขนง", amphoeTh: "คลองเตย" },
 ] as const;
 
 function getAreaDistrictLabel(value: string): string {
@@ -139,7 +143,7 @@ function getAreaDistrictLabel(value: string): string {
 function getAreaDistrictParts(value: string): { tambon: string; amphoe: string } {
   const found = AREA_DISTRICT_OPTIONS.find((o) => o.value === value);
   if (!found) return { tambon: "", amphoe: "" };
-  const [tambonRaw = "", amphoeRaw = ""] = found.labelEn.split(",").map((s) => s.trim());
+  const [tambonRaw = "", amphoeRaw = ""] = found.labelEn.split("/").map((s) => s.trim());
   return { tambon: tambonRaw, amphoe: amphoeRaw };
 }
 
@@ -167,12 +171,16 @@ function Field({
   icon: Icon,
   label,
   required = false,
+  requiredLabel = "必須",
+  optionalLabel = "任意",
   error,
   children,
 }: {
   icon: React.ElementType;
   label: React.ReactNode;
   required?: boolean;
+  requiredLabel?: string;
+  optionalLabel?: string;
   error?: string;
   children: React.ReactNode;
 }) {
@@ -186,7 +194,7 @@ function Field({
             required ? "bg-red-50 text-red-600 border border-red-200" : "bg-gray-100 text-gray-500 border border-gray-200"
           }`}
         >
-          {required ? "必須" : "任意"}
+          {required ? requiredLabel : optionalLabel}
         </span>
       </label>
       {children}
@@ -206,8 +214,17 @@ export default function CheckoutPage() {
   const audience = useAudience();
   const auth = useAuthSessionOptional();
 
+  const { language, t: tLang } = useLanguage();
+  const isEn = language === "en";
+  const co = tLang.checkout;
+
   const shippingFee = getShippingFeeBaht(total);
   const totalWithShipping = total + shippingFee;
+
+  const fieldLabels = {
+    requiredLabel: co.required,
+    optionalLabel: co.optional,
+  };
 
   const [form, setForm] = useState<CheckoutForm>(INITIAL_FORM);
   const [submitting, setSubmitting] = useState(false);
@@ -250,17 +267,17 @@ export default function CheckoutPage() {
     const next: FormErrors = {};
     const phoneDigits = current.phone.replace(/\D/g, "");
     const postal = current.postalCode.trim();
-    if (!current.email.trim()) next.email = "メールアドレスを入力してください";
-    if (!current.name.trim()) next.name = "名前 (Name) を入力してください";
-    if (!phoneDigits) next.phone = "電話番号を入力してください";
-    if (!current.addressLine1.trim()) next.addressLine1 = "住所1を入力してください";
-    if (!current.tambon.trim()) next.tambon = "区・町を入力してください";
-    if (!current.amphoe.trim()) next.amphoe = "郡・区を入力してください";
-    if (!current.province.trim()) next.province = "都・県を入力してください";
+    if (!current.email.trim()) next.email = co.errorEmail;
+    if (!current.name.trim()) next.name = co.errorName;
+    if (!phoneDigits) next.phone = co.errorPhone;
+    if (!current.addressLine1.trim()) next.addressLine1 = co.errorAddress1;
+    if (!current.tambon.trim()) next.tambon = co.errorTambon;
+    if (!current.amphoe.trim()) next.amphoe = co.errorAmphoe;
+    if (!current.province.trim()) next.province = co.errorProvince;
     if (!postal) {
-      next.postalCode = "郵便番号を入力してください";
+      next.postalCode = co.errorPostalEmpty;
     } else if (!/^\d{5}$/.test(postal)) {
-      next.postalCode = "郵便番号は5桁の数字で入力してください";
+      next.postalCode = co.errorPostalFormat;
     }
     return next;
   }
@@ -271,7 +288,7 @@ export default function CheckoutPage() {
     const validationErrors = validateCheckoutForm(form);
     setFormErrors(validationErrors);
     if (Object.keys(validationErrors).length > 0) {
-      setError("入力内容をご確認ください。赤いメッセージの項目を修正してください。");
+      setError(co.errorValidation);
       return;
     }
 
@@ -297,7 +314,7 @@ export default function CheckoutPage() {
         }),
       }).catch(() => null);
       if (!vipCheck || !vipCheck.ok) {
-        setError(audience === "ja" ? "購入可否の確認に失敗しました。時間をおいて再度お試しください。" : "ตรวจสอบสิทธิ์การซื้อไม่สำเร็จ กรุณาลองใหม่");
+        setError(isEn ? co.errorVipCheck : (audience === "ja" ? "購入可否の確認に失敗しました。時間をおいて再度お試しください。" : "ตรวจสอบสิทธิ์การซื้อไม่สำเร็จ กรุณาลองใหม่"));
         setSubmitting(false);
         return;
       }
@@ -643,7 +660,7 @@ export default function CheckoutPage() {
                     )}
                     {!product.is_set && product.flavor_color === "original" && item.saltOption && (
                       <p className="text-[10px] text-gray-500 mt-0.5">
-                        {item.saltOption === "with_salt" ? "塩あり" : "塩なし"}
+                        {item.saltOption === "with_salt" ? co.withSalt : co.withoutSalt}
                       </p>
                     )}
                     {(() => {
@@ -723,8 +740,9 @@ export default function CheckoutPage() {
 
             <Field
               icon={Mail}
-              label={<DualLanguageLabel primary={audience === "ja" ? "メールアドレス" : "อีเมล"} secondary={audience === "ja" ? "อีเมล" : "メールアドレス"} />}
+              label={isEn ? "Email Address" : <DualLanguageLabel primary={audience === "ja" ? "メールアドレス" : "อีเมล"} secondary={audience === "ja" ? "อีเมล" : "メールアドレス"} />}
               required
+              {...fieldLabels}
               error={formErrors.email}
             >
               <input
@@ -741,7 +759,7 @@ export default function CheckoutPage() {
               />
             </Field>
 
-            <Field icon={User} label="名前 (Name)" required error={formErrors.name}>
+            <Field icon={User} label={isEn ? "Name" : "名前 (Name)"} required {...fieldLabels} error={formErrors.name}>
               <input
                 type="text"
                 value={form.name}
@@ -749,18 +767,50 @@ export default function CheckoutPage() {
                   setForm({ ...form, name: e.target.value });
                   if (formErrors.name) setFormErrors((prev) => ({ ...prev, name: undefined }));
                 }}
-                placeholder="例: Taro Yamada (アルファベット推奨)"
+                placeholder={co.namePlaceholder}
                 className={inputClass}
                 autoComplete="name"
               />
             </Field>
 
-            <Field icon={MapPin} label={<DualLanguageLabel primary={T.address[audience]} secondary={T.address[audience === "ja" ? "th" : "ja"]} />}>
+            <Field icon={MapPin} label={isEn ? "Address" : <DualLanguageLabel primary={T.address[audience]} secondary={T.address[audience === "ja" ? "th" : "ja"]} />} {...fieldLabels}>
               <div className="space-y-2">
+
+                {/* ─── クイック選択（最上部に配置） ─── */}
+                <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3 space-y-2">
+                  <p className="text-xs font-semibold text-amber-800">{co.quickSelectLabel}</p>
+                  <select
+                    value={form.areaDistrict}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      const parts = getAreaDistrictParts(next);
+                      setForm((prev) => ({
+                        ...prev,
+                        areaDistrict: next,
+                        tambon: parts.tambon || prev.tambon,
+                        amphoe: parts.amphoe || prev.amphoe,
+                      }));
+                    }}
+                    className={inputClass}
+                  >
+                    <option value="">— {isEn ? "Select area" : "エリアを選択"} —</option>
+                    {AREA_DISTRICT_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {isEn
+                          ? `${opt.labelEn}  (แขวง${opt.tambonTh} เขต${opt.amphoeTh})`
+                          : `${opt.labelJa}  (แขวง${opt.tambonTh} เขต${opt.amphoeTh})`
+                        }
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-gray-500 text-[11px]">{co.quickSelectHint}</p>
+                </div>
+
+                {/* ─── 住所1 ─── */}
                 <div>
                   <p className="mb-1 text-xs font-semibold text-gray-600 flex items-center gap-1.5">
-                    住所1（番地・建物・Soi・道路）
-                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold bg-red-50 text-red-600 border border-red-200">必須</span>
+                    {co.address1Label}
+                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold bg-red-50 text-red-600 border border-red-200">{co.required}</span>
                   </p>
                   <input
                     type="text"
@@ -776,10 +826,11 @@ export default function CheckoutPage() {
                   {formErrors.addressLine1 ? <p className="mt-1 text-xs text-red-600">{formErrors.addressLine1}</p> : null}
                 </div>
 
+                {/* ─── 区・町 ─── */}
                 <div>
                   <p className="mb-1 text-xs font-semibold text-gray-600 flex items-center gap-1.5">
-                    区・町 (Sub-district / แขวง/ตำบล)
-                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold bg-red-50 text-red-600 border border-red-200">必須</span>
+                    {co.tambonLabel}
+                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold bg-red-50 text-red-600 border border-red-200">{co.required}</span>
                   </p>
                   <input
                     type="text"
@@ -788,17 +839,18 @@ export default function CheckoutPage() {
                       setForm({ ...form, tambon: e.target.value });
                       if (formErrors.tambon) setFormErrors((prev) => ({ ...prev, tambon: undefined }));
                     }}
-                    placeholder="区・町 (Sub-district / แขวง/ตำบล)"
+                    placeholder={co.tambonPlaceholder}
                     className={inputClass}
                     autoComplete="address-level3"
                   />
                   {formErrors.tambon ? <p className="mt-1 text-xs text-red-600">{formErrors.tambon}</p> : null}
                 </div>
 
+                {/* ─── 郡・区 ─── */}
                 <div>
                   <p className="mb-1 text-xs font-semibold text-gray-600 flex items-center gap-1.5">
-                    郡・区 (District / เขต/อำเภอ)
-                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold bg-red-50 text-red-600 border border-red-200">必須</span>
+                    {co.amphoeLabel}
+                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold bg-red-50 text-red-600 border border-red-200">{co.required}</span>
                   </p>
                   <input
                     type="text"
@@ -807,17 +859,18 @@ export default function CheckoutPage() {
                       setForm({ ...form, amphoe: e.target.value });
                       if (formErrors.amphoe) setFormErrors((prev) => ({ ...prev, amphoe: undefined }));
                     }}
-                    placeholder="郡・区 (District / เขต/อำเภอ)"
+                    placeholder={co.amphoePlaceholder}
                     className={inputClass}
                     autoComplete="address-level2"
                   />
                   {formErrors.amphoe ? <p className="mt-1 text-xs text-red-600">{formErrors.amphoe}</p> : null}
                 </div>
 
+                {/* ─── 都・県 ─── */}
                 <div>
                   <p className="mb-1 text-xs font-semibold text-gray-600 flex items-center gap-1.5">
-                    都・県 (Province / จังหวัด)
-                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold bg-red-50 text-red-600 border border-red-200">必須</span>
+                    {co.provinceLabel}
+                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold bg-red-50 text-red-600 border border-red-200">{co.required}</span>
                   </p>
                   <input
                     type="text"
@@ -826,17 +879,18 @@ export default function CheckoutPage() {
                       setForm({ ...form, province: e.target.value });
                       if (formErrors.province) setFormErrors((prev) => ({ ...prev, province: undefined }));
                     }}
-                    placeholder="都・県 (Province / จังหวัด)"
+                    placeholder={co.provincePlaceholder}
                     className={inputClass}
                     autoComplete="address-level1"
                   />
                   {formErrors.province ? <p className="mt-1 text-xs text-red-600">{formErrors.province}</p> : null}
                 </div>
 
+                {/* ─── 郵便番号 ─── */}
                 <div>
                   <p className="mb-1 text-xs font-semibold text-gray-600 flex items-center gap-1.5">
-                    郵便番号 (Postal Code / รหัสไปรษณีย์)
-                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold bg-red-50 text-red-600 border border-red-200">必須</span>
+                    {co.postalLabel}
+                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold bg-red-50 text-red-600 border border-red-200">{co.required}</span>
                   </p>
                   <input
                     type="text"
@@ -845,7 +899,7 @@ export default function CheckoutPage() {
                       setForm({ ...form, postalCode: e.target.value });
                       if (formErrors.postalCode) setFormErrors((prev) => ({ ...prev, postalCode: undefined }));
                     }}
-                    placeholder="郵便番号 (Postal Code / รหัสไปรษณีย์)"
+                    placeholder="10110"
                     className={inputClass}
                     autoComplete="postal-code"
                     inputMode="numeric"
@@ -853,37 +907,14 @@ export default function CheckoutPage() {
                   {formErrors.postalCode ? <p className="mt-1 text-xs text-red-600">{formErrors.postalCode}</p> : null}
                 </div>
 
-                <select
-                  value={form.areaDistrict}
-                  onChange={(e) => {
-                    const next = e.target.value;
-                    const parts = getAreaDistrictParts(next);
-                    setForm((prev) => ({
-                      ...prev,
-                      areaDistrict: next,
-                      tambon: prev.tambon || parts.tambon,
-                      amphoe: prev.amphoe || parts.amphoe,
-                    }));
-                  }}
-                  className={inputClass}
-                >
-                  <option value="">クイック選択（任意）: 区/町・郡</option>
-                  {AREA_DISTRICT_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.labelJa} ({opt.labelEn})
-                    </option>
-                  ))}
-                </select>
-                <p className="text-gray-500 text-xs">
-                  上のクイック選択は任意です。เลือกด่วนได้ (ไม่บังคับ)
-                </p>
               </div>
             </Field>
 
             <Field
               icon={Phone}
-              label={<DualLanguageLabel primary={T.phone[audience]} secondary={T.phone[audience === "ja" ? "th" : "ja"]} />}
+              label={isEn ? "Phone Number" : <DualLanguageLabel primary={T.phone[audience]} secondary={T.phone[audience === "ja" ? "th" : "ja"]} />}
               required
+              {...fieldLabels}
               error={formErrors.phone}
             >
               <input
@@ -900,11 +931,11 @@ export default function CheckoutPage() {
               />
             </Field>
 
-            <Field icon={MessageSquare} label={<DualLanguageLabel primary={T.note[audience]} secondary={T.note[audience === "ja" ? "th" : "ja"]} />}>
+            <Field icon={MessageSquare} label={isEn ? "Order Notes" : <DualLanguageLabel primary={T.note[audience]} secondary={T.note[audience === "ja" ? "th" : "ja"]} />} {...fieldLabels}>
               <textarea
                 value={form.note}
                 onChange={(e) => setForm({ ...form, note: e.target.value })}
-                placeholder="味の指定・配達希望・上記にない住所など"
+                placeholder={co.notePlaceholder}
                 rows={3}
                 className={`${inputClass} resize-none`}
               />
@@ -912,7 +943,7 @@ export default function CheckoutPage() {
 
             <div className="rounded-2xl border border-amber-200 bg-amber-50/80 px-4 py-3 space-y-3">
               <p className="text-sm font-bold text-amber-900">
-                {audience === "ja" ? "ご注文後の流れ (3ステップ)" : "ขั้นตอนหลังสั่งซื้อ (3 ขั้นตอน)"}
+                {isEn ? co.stepsHeading : (audience === "ja" ? "ご注文後の流れ (3ステップ)" : "ขั้นตอนหลังสั่งซื้อ (3 ขั้นตอน)")}
               </p>
               <div className="grid gap-2.5">
                 <div className="flex items-start gap-2.5 rounded-xl border border-amber-200/80 bg-white/80 px-3 py-2.5">
@@ -921,10 +952,10 @@ export default function CheckoutPage() {
                   </span>
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-amber-900">
-                      ① {audience === "ja" ? "注文を確定する" : "ยืนยันคำสั่งซื้อ"}
+                      ① {isEn ? co.step1 : (audience === "ja" ? "注文を確定する" : "ยืนยันคำสั่งซื้อ")}
                     </p>
                     <p className="text-[11px] text-amber-800/80">
-                      {audience === "ja" ? "Confirm your order" : "Confirm your order"}
+                      {co.step1Sub}
                     </p>
                   </div>
                 </div>
@@ -934,10 +965,10 @@ export default function CheckoutPage() {
                   </span>
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-amber-900">
-                      ② {audience === "ja" ? "銀行振込 ＆ スリップ画像のアップロード" : "โอนเงินธนาคาร และอัปโหลดสลิป"}
+                      ② {isEn ? co.step2 : (audience === "ja" ? "銀行振込 ＆ スリップ画像のアップロード" : "โอนเงินธนาคาร และอัปโหลดสลิป")}
                     </p>
                     <p className="text-[11px] text-amber-800/80">
-                      {audience === "ja" ? "Bank transfer & slip upload" : "Bank transfer & slip upload"}
+                      {co.step2Sub}
                     </p>
                   </div>
                 </div>
@@ -947,10 +978,10 @@ export default function CheckoutPage() {
                   </span>
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-amber-900">
-                      ③ {audience === "ja" ? "入金確認 ＆ 商品の発送" : "ยืนยันการชำระเงิน และจัดส่งสินค้า"}
+                      ③ {isEn ? co.step3 : (audience === "ja" ? "入金確認 ＆ 商品の発送" : "ยืนยันการชำระเงิน และจัดส่งสินค้า")}
                     </p>
                     <p className="text-[11px] text-amber-800/80">
-                      {audience === "ja" ? "Payment confirmation & shipping" : "Payment confirmation & shipping"}
+                      {co.step3Sub}
                     </p>
                   </div>
                 </div>

@@ -1,11 +1,11 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import Link from "next/link";
-import { ChevronRight, Leaf, Truck, ShieldCheck } from "lucide-react";
+import { Leaf, Truck, ShieldCheck } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import HeroCarouselDynamic from "@/components/home/HeroCarouselDynamic";
 import AnnouncementPopup from "@/components/home/AnnouncementPopup";
+import HeroTextClient from "@/app/_components/HeroTextClient";
 import ProductsGrid from "@/app/_components/ProductsGrid";
 import ProductsGridSkeleton from "@/app/_components/ProductsGridSkeleton";
 import { getAudienceFromEnv } from "@/lib/audience";
@@ -164,43 +164,8 @@ export default async function HomePage() {
       <HeroCarouselDynamic />
 
       <main className="flex-1">
-        {/* ─── ヒーローセクション ──────────────────────────────── */}
-        <section className="relative overflow-hidden bg-gradient-to-br from-amber-100 via-orange-50 to-yellow-50">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-amber-200/30 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
-          <div className="absolute bottom-0 left-0 w-72 h-72 bg-orange-200/30 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3 pointer-events-none" />
-
-          <div className="relative max-w-5xl mx-auto px-4 sm:px-6 py-24 sm:py-32 text-center">
-            <span className="inline-block bg-amber-200 text-amber-800 text-xs font-bold uppercase tracking-widest px-4 py-1.5 rounded-full mb-6">
-              🌿 Sam Sian Cashew Nuts — Uttaradit, Thailand
-            </span>
-
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-amber-950 leading-tight tracking-tight mb-6">
-              {t.heroTitle1}
-              <br className="hidden sm:block" />
-              <span className="text-amber-600">{t.heroTitle2}</span>
-            </h1>
-
-            <p className="text-amber-800/70 text-lg sm:text-xl max-w-xl mx-auto leading-relaxed mb-10">
-              {t.heroSub}
-            </p>
-
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link
-                href="#products"
-                className="inline-flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-lg px-8 py-4 rounded-2xl shadow-lg hover:shadow-xl transition-all active:scale-95"
-              >
-                {t.cta}
-                <ChevronRight size={20} />
-              </Link>
-              <Link
-                href="/about"
-                className="inline-flex items-center justify-center gap-2 bg-white/80 hover:bg-white text-amber-800 font-bold text-lg px-8 py-4 rounded-2xl border border-amber-200 transition-all active:scale-95"
-              >
-                {t.ctaAbout}
-              </Link>
-            </div>
-          </div>
-        </section>
+        {/* ─── ヒーローセクション（JP/EN 言語切り替え対応） ────── */}
+        <HeroTextClient />
 
         {/* ─── 特徴セクション ──────────────────────────────────── */}
         <section className="bg-amber-900 py-12">

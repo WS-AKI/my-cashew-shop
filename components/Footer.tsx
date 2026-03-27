@@ -1,7 +1,10 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
 import { LINE_OFFICIAL_QR_PATH } from "@/lib/shop-config";
-import { getAudienceFromEnv } from "@/lib/audience";
+import { useAudience } from "@/context/AudienceContext";
+import { useLanguage } from "@/context/LanguageContext";
 
 const FOOTER_TEXT = {
   ja: {
@@ -41,8 +44,11 @@ const FOOTER_TEXT = {
 } as const;
 
 export default function Footer() {
-  const audience = getAudienceFromEnv();
-  const t = FOOTER_TEXT[audience];
+  const audience = useAudience();
+  const { language, t } = useLanguage();
+
+  // language=en → ロケール辞書、それ以外 → 既存 ja/th テキスト
+  const f = language === "en" ? t.footer : FOOTER_TEXT[audience];
 
   return (
     <footer className="bg-amber-950 text-amber-200 pt-12 pb-8 mt-20">
@@ -63,34 +69,34 @@ export default function Footer() {
               </div>
             </div>
             <p className="text-amber-300/70 text-sm leading-relaxed">
-              {t.brandDesc}
+              {f.brandDesc}
             </p>
           </div>
 
           {/* ショップリンク */}
           <div>
             <h3 className="text-white font-semibold mb-3 text-sm uppercase tracking-widest">
-              {t.shopHeading}
+              {f.shopHeading}
             </h3>
             <ul className="space-y-2 text-sm">
               <li>
                 <Link href="/products" className="text-amber-300/70 hover:text-amber-300 transition-colors">
-                  {t.products}
+                  {f.products}
                 </Link>
               </li>
               <li>
                 <Link href="/cart" className="text-amber-300/70 hover:text-amber-300 transition-colors">
-                  {t.cart}
+                  {f.cart}
                 </Link>
               </li>
               <li>
                 <Link href="/track" className="text-amber-300/70 hover:text-amber-300 transition-colors">
-                  {t.track}
+                  {f.track}
                 </Link>
               </li>
               <li>
                 <Link href="/checkout/success" className="text-amber-300/70 hover:text-amber-300 transition-colors">
-                  {t.paymentMethod}
+                  {f.paymentMethod}
                 </Link>
               </li>
             </ul>
@@ -99,17 +105,17 @@ export default function Footer() {
           {/* インフォメーション */}
           <div>
             <h3 className="text-white font-semibold mb-3 text-sm uppercase tracking-widest">
-              {t.infoHeading}
+              {f.infoHeading}
             </h3>
             <ul className="space-y-2 text-sm">
               <li>
                 <Link href="/about" className="text-amber-300/70 hover:text-amber-300 transition-colors">
-                  {t.about}
+                  {f.about}
                 </Link>
               </li>
               <li>
                 <Link href="/shipping" className="text-amber-300/70 hover:text-amber-300 transition-colors">
-                  {t.shipping}
+                  {f.shipping}
                 </Link>
               </li>
             </ul>
@@ -118,24 +124,24 @@ export default function Footer() {
           {/* 公式LINE */}
           <div>
             <h3 className="text-white font-semibold mb-3 text-sm uppercase tracking-widest">
-              {t.lineHeading}
+              {f.lineHeading}
             </h3>
             {LINE_OFFICIAL_QR_PATH && (
               <span className="relative block w-28 h-28 rounded-xl overflow-hidden bg-white border-2 border-amber-600/50 shadow-md">
                 <Image
                   src={LINE_OFFICIAL_QR_PATH}
-                  alt={t.lineQrAlt}
+                  alt={f.lineQrAlt}
                   fill
                   sizes="112px"
                   className="object-contain"
                 />
               </span>
             )}
-            <p className="text-amber-300/80 text-sm mt-2 mb-1">{t.lineScan}</p>
+            <p className="text-amber-300/80 text-sm mt-2 mb-1">{f.lineScan}</p>
             <p className="text-amber-400/90 text-xs leading-relaxed">
-              {t.lineSlipNote}
-              <strong className="text-amber-300">{t.lineSlipNoteStrong}</strong>
-              {t.lineSlipNoteSuffix}
+              {f.lineSlipNote}
+              <strong className="text-amber-300">{f.lineSlipNoteStrong}</strong>
+              {f.lineSlipNoteSuffix}
             </p>
           </div>
         </div>

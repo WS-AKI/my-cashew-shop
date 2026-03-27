@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { CircleUserRound, LogIn, LogOut, ShoppingCart } from "lucide-react";
+import { CircleUserRound, Globe, LogIn, LogOut, ShoppingCart } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useAudience } from "@/context/AudienceContext";
 import { useAuthSessionOptional } from "@/context/AuthSessionContext";
+import { useLanguage } from "@/context/LanguageContext";
 import LoyaltyRankBadge from "@/components/loyalty/LoyaltyRankBadge";
 import { SHOP_TEXT } from "@/lib/shop-config";
 
@@ -24,6 +25,7 @@ export default function Header() {
   const { totalQuantity } = useCart();
   const audience = useAudience();
   const auth = useAuthSessionOptional();
+  const { language, setLanguage, t } = useLanguage();
   const authNav = AUTH_NAV[audience];
   const authStatusLabel = AUTH_STATUS[audience];
 
@@ -47,25 +49,16 @@ export default function Header() {
         {/* ナビ */}
         <nav className="hidden sm:flex items-center gap-7 text-[13px] font-medium tracking-[0.01em] text-amber-900/80">
           <Link href="/" className="hover:text-amber-600 transition-colors">
-            {Nav.home[audience]}
+            {language === "en" ? t.nav.home : Nav.home[audience]}
           </Link>
-          <Link
-            href="/products"
-            className="hover:text-amber-600 transition-colors"
-          >
-            {Nav.products[audience]}
+          <Link href="/products" className="hover:text-amber-600 transition-colors">
+            {language === "en" ? t.nav.products : Nav.products[audience]}
           </Link>
-          <Link
-            href="/about"
-            className="hover:text-amber-600 transition-colors"
-          >
-            {Nav.about[audience]}
+          <Link href="/about" className="hover:text-amber-600 transition-colors">
+            {language === "en" ? t.nav.about : Nav.about[audience]}
           </Link>
-          <Link
-            href="/track"
-            className="hover:text-amber-600 transition-colors"
-          >
-            {Nav.track[audience]}
+          <Link href="/track" className="hover:text-amber-600 transition-colors">
+            {language === "en" ? t.nav.track : Nav.track[audience]}
           </Link>
         </nav>
 
@@ -111,6 +104,19 @@ export default function Header() {
               )}
             </>
           )}
+
+        {/* JP / EN 言語トグル */}
+        <button
+          type="button"
+          onClick={() => setLanguage(language === "ja" ? "en" : "ja")}
+          className="flex items-center gap-1 text-[11px] sm:text-xs font-bold text-amber-900/50 hover:text-amber-700 transition-colors select-none"
+          aria-label={language === "ja" ? "Switch to English" : "日本語に切り替え"}
+          title={language === "ja" ? "Switch to English" : "日本語に切り替え"}
+        >
+          <Globe className="h-3.5 w-3.5" aria-hidden="true" />
+          <span className="hidden sm:inline">{language === "ja" ? "EN" : "JP"}</span>
+          <span className="sm:hidden">{language.toUpperCase()}</span>
+        </button>
 
         {/* カートアイコン */}
         <Link href="/cart" className="relative p-2 group">

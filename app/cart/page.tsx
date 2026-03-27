@@ -9,6 +9,7 @@ import Footer from "@/components/Footer";
 import { DualLanguageLabel } from "@/components/ui/DualLanguageLabel";
 import { SHOP_TEXT, FREE_SHIPPING_THRESHOLD_BAHT } from "@/lib/shop-config";
 import { useAudience } from "@/context/AudienceContext";
+import { useLanguage } from "@/context/LanguageContext";
 import VipGoldProgressHint from "@/components/loyalty/VipGoldProgressHint";
 import { Package, Plus, Minus, Trash2, ChevronRight } from "lucide-react";
 
@@ -18,6 +19,8 @@ export default function CartPage() {
   const { items, updateQuantity, removeFromCart, subtotal, discountAmount, total, discountRate } =
     useCart();
   const audience = useAudience();
+  const { language, t: tLang } = useLanguage();
+  const isEn = language === "en";
 
   if (items.length === 0) {
     return (
@@ -27,17 +30,25 @@ export default function CartPage() {
           <div className="text-center">
             <Package size={64} className="text-amber-200 mx-auto mb-4" />
             <h2 className="text-xl font-bold text-gray-700 mb-2">
-              <DualLanguageLabel primary={T.empty[audience]} secondary={T.empty[audience === "ja" ? "th" : "ja"]} />
+              {isEn ? tLang.cart.empty : (
+                <DualLanguageLabel primary={T.empty[audience]} secondary={T.empty[audience === "ja" ? "th" : "ja"]} />
+              )}
             </h2>
             <p className="text-gray-500 text-sm mb-6">
-              <DualLanguageLabel primary={T.emptyHint[audience]} secondary={T.emptyHint[audience === "ja" ? "th" : "ja"]} />
+              {isEn ? tLang.cart.emptyHint : (
+                <DualLanguageLabel primary={T.emptyHint[audience]} secondary={T.emptyHint[audience === "ja" ? "th" : "ja"]} />
+              )}
             </p>
             <Link
               href="/#products"
               className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold px-6 py-3 rounded-xl"
             >
-              {T.viewProducts[audience]}
-              <span className="text-white/80 text-xs">({T.viewProducts[audience === "ja" ? "th" : "ja"]})</span>
+              {isEn ? tLang.cart.viewProducts : (
+                <>
+                  {T.viewProducts[audience]}
+                  <span className="text-white/80 text-xs">({T.viewProducts[audience === "ja" ? "th" : "ja"]})</span>
+                </>
+              )}
               <ChevronRight size={18} />
             </Link>
           </div>
@@ -53,7 +64,9 @@ export default function CartPage() {
 
       <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-6">
         <h1 className="text-2xl font-extrabold text-amber-950 mb-6">
-          <DualLanguageLabel primary={T.title[audience]} secondary={T.title[audience === "ja" ? "th" : "ja"]} />
+          {isEn ? tLang.cart.title : (
+            <DualLanguageLabel primary={T.title[audience]} secondary={T.title[audience === "ja" ? "th" : "ja"]} />
+          )}
         </h1>
 
         <VipGoldProgressHint cartSubtotalBaht={subtotal} />
@@ -65,23 +78,28 @@ export default function CartPage() {
             return (
               <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50/90 px-4 py-3">
                 <p className="text-sm font-semibold text-emerald-900">
-                  <DualLanguageLabel
-                    primary={T.freeShippingUnlocked[audience]}
-                    secondary={T.freeShippingUnlocked[audience === "ja" ? "th" : "ja"]}
-                  />
+                  {isEn ? tLang.cart.freeShippingUnlocked : (
+                    <DualLanguageLabel
+                      primary={T.freeShippingUnlocked[audience]}
+                      secondary={T.freeShippingUnlocked[audience === "ja" ? "th" : "ja"]}
+                    />
+                  )}
                 </p>
               </div>
             );
           }
+          const msgEn = tLang.cart.freeShippingProgress.replace("{remaining}", remaining.toLocaleString());
           const msgJa = T.freeShippingProgress.ja.replace("{remaining}", remaining.toLocaleString());
           const msgTh = T.freeShippingProgress.th.replace("{remaining}", remaining.toLocaleString());
           return (
             <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50/90 px-4 py-3 space-y-2">
               <p className="text-sm font-semibold text-amber-900">
-                <DualLanguageLabel
-                  primary={audience === "ja" ? msgJa : msgTh}
-                  secondary={audience === "ja" ? msgTh : msgJa}
-                />
+                {isEn ? msgEn : (
+                  <DualLanguageLabel
+                    primary={audience === "ja" ? msgJa : msgTh}
+                    secondary={audience === "ja" ? msgTh : msgJa}
+                  />
+                )}
               </p>
               <div className="h-2 rounded-full bg-amber-200/80 overflow-hidden">
                 <div
@@ -147,7 +165,9 @@ export default function CartPage() {
                   )}
                   {!product.is_set && product.flavor_color === "original" && item.saltOption && (
                     <p className="text-[10px] text-gray-500 mt-0.5">
-                      {item.saltOption === "with_salt" ? "塩あり" : "塩なし"}
+                      {item.saltOption === "with_salt"
+                        ? (isEn ? tLang.cart.withSalt : "塩あり")
+                        : (isEn ? tLang.cart.withoutSalt : "塩なし")}
                     </p>
                   )}
                   {(() => {
@@ -180,7 +200,7 @@ export default function CartPage() {
                       type="button"
                       onClick={() => updateQuantity(product.id, quantity - 1, selectedSizeG, selectedFlavors, item.saltOption ?? null)}
                       className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center active:scale-95"
-                      aria-label={T.decrease[audience]}
+                      aria-label={isEn ? tLang.cart.decrease : T.decrease[audience]}
                     >
                       <Minus size={18} />
                     </button>
@@ -191,7 +211,7 @@ export default function CartPage() {
                       type="button"
                       onClick={() => updateQuantity(product.id, quantity + 1, selectedSizeG, selectedFlavors, item.saltOption ?? null)}
                       className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center active:scale-95"
-                      aria-label={T.increase[audience]}
+                      aria-label={isEn ? tLang.cart.increase : T.increase[audience]}
                     >
                       <Plus size={18} />
                     </button>
@@ -199,7 +219,7 @@ export default function CartPage() {
                       type="button"
                       onClick={() => removeFromCart(product.id, selectedSizeG, selectedFlavors, item.saltOption ?? null)}
                       className="ml-auto w-10 h-10 rounded-xl bg-red-50 text-red-500 flex items-center justify-center active:scale-95"
-                      aria-label={T.remove[audience]}
+                      aria-label={isEn ? tLang.cart.remove : T.remove[audience]}
                     >
                       <Trash2 size={18} />
                     </button>
@@ -212,17 +232,29 @@ export default function CartPage() {
 
         <div className="mt-6 bg-white rounded-2xl shadow-sm border border-amber-100 p-5 space-y-2">
           <div className="flex justify-between text-gray-600">
-            <span><DualLanguageLabel primary={T.subtotal[audience]} secondary={T.subtotal[audience === "ja" ? "th" : "ja"]} /></span>
+            <span>
+              {isEn ? tLang.cart.subtotal : (
+                <DualLanguageLabel primary={T.subtotal[audience]} secondary={T.subtotal[audience === "ja" ? "th" : "ja"]} />
+              )}
+            </span>
             <span>฿{subtotal.toLocaleString()}</span>
           </div>
           {discountRate > 0 && (
             <div className="flex justify-between text-green-600 font-medium">
-              <span><DualLanguageLabel primary={`${T.discount[audience]} (${(discountRate * 100).toFixed(0)}%)`} secondary={T.discount[audience === "ja" ? "th" : "ja"]} /></span>
+              <span>
+                {isEn
+                  ? `${tLang.cart.discount} (${(discountRate * 100).toFixed(0)}%)`
+                  : <DualLanguageLabel primary={`${T.discount[audience]} (${(discountRate * 100).toFixed(0)}%)`} secondary={T.discount[audience === "ja" ? "th" : "ja"]} />}
+              </span>
               <span>−฿{discountAmount.toLocaleString()}</span>
             </div>
           )}
           <div className="flex justify-between font-extrabold text-amber-950 text-xl pt-2 border-t border-amber-100">
-            <span><DualLanguageLabel primary={T.total[audience]} secondary={T.total[audience === "ja" ? "th" : "ja"]} /></span>
+            <span>
+              {isEn ? tLang.cart.total : (
+                <DualLanguageLabel primary={T.total[audience]} secondary={T.total[audience === "ja" ? "th" : "ja"]} />
+              )}
+            </span>
             <span>฿{total.toLocaleString()}</span>
           </div>
         </div>
@@ -233,8 +265,12 @@ export default function CartPage() {
           href="/checkout"
           className="block w-full py-4 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-center text-lg active:scale-[0.98]"
         >
-          {T.proceedToCheckout[audience]}
-          <span className="text-white/80 text-xs ml-1">({T.proceedToCheckout[audience === "ja" ? "th" : "ja"]})</span>
+          {isEn ? tLang.cart.proceedToCheckout : (
+            <>
+              {T.proceedToCheckout[audience]}
+              <span className="text-white/80 text-xs ml-1">({T.proceedToCheckout[audience === "ja" ? "th" : "ja"]})</span>
+            </>
+          )}
           <ChevronRight size={20} className="inline-block ml-1 align-middle" />
         </Link>
       </div>

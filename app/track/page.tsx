@@ -13,6 +13,7 @@ import {
   Upload, CheckCircle, Loader2, Send, MessageCircle, User, Store, Copy, Check, Clock3,
 } from "lucide-react";
 import { useAudience } from "@/context/AudienceContext";
+import { useLanguage } from "@/context/LanguageContext";
 import OrderProgressBar from "@/components/orders/OrderProgressBar";
 import { normalizeOrderLookupRef, resolveOrderRowForLookup } from "@/lib/order-lookup";
 
@@ -45,6 +46,9 @@ export default function TrackPage() {
 
 function TrackContent() {
   const audience = useAudience();
+  const { language, t: tLang } = useLanguage();
+  const isEn = language === "en";
+  const tr = tLang.track;
   const searchParams = useSearchParams();
   const initialId = searchParams.get("id") ?? "";
 
@@ -96,7 +100,9 @@ function TrackContent() {
     const norm = normalizeOrderLookupRef(rawInput);
     if (norm.kind === "invalid") {
       setError(
-        "注文番号の形式が正しくありません。表示されている番号をそのまま（または # 付き・先頭8桁）で入力してください。\nรูปแบบหมายเลขไม่ถูกต้อง กรุณาคัดลอกจากอีเมลหรือหน้าสั่งซื้อ",
+        isEn
+          ? tr.errorInvalidFormat
+          : "注文番号の形式が正しくありません。表示されている番号をそのまま（または # 付き・先頭8桁）で入力してください。\nรูปแบบหมายเลขไม่ถูกต้อง กรุณาคัดลอกจากอีเมลหรือหน้าสั่งซื้อ",
       );
       setLoading(false);
       return;
@@ -108,19 +114,21 @@ function TrackContent() {
 
       if (!resolved.ok) {
         if (resolved.reason === "not_found") {
-          setError("注文が見つかりませんでした。注文番号をご確認ください。\nไม่พบคำสั่งซื้อ กรุณาตรวจสอบหมายเลขคำสั่งซื้อ");
+          setError(isEn ? tr.errorNotFound : "注文が見つかりませんでした。注文番号をご確認ください。\nไม่พบคำสั่งซื้อ กรุณาตรวจสอบหมายเลขคำสั่งซื้อ");
           return;
         }
         if (resolved.reason === "ambiguous") {
           setError(
-            "同じ先頭番号に複数の注文が見つかりました。注文完了メールなどに記載の完全な注文番号（UUID）で検索してください。\nพบหลายคำสั่งซื้อที่ตรงกัน กรุณาใช้หมายเลขเต็มจากอีเมล",
+            isEn
+              ? tr.errorAmbiguous
+              : "同じ先頭番号に複数の注文が見つかりました。注文完了メールなどに記載の完全な注文番号（UUID）で検索してください。\nพบหลายคำสั่งซื้อที่ตรงกัน กรุณาใช้หมายเลขเต็มจากอีเมล",
           );
           return;
         }
         if (process.env.NODE_ENV === "development" && resolved.details) {
           console.error("resolveOrderRowForLookup", resolved.details);
         }
-        setError("エラーが発生しました。もう一度お試しください。\nเกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง");
+        setError(isEn ? tr.errorGeneric : "エラーが発生しました。もう一度お試しください。\nเกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง");
         return;
       }
 
@@ -135,7 +143,7 @@ function TrackContent() {
       setMessages((msgs as Message[]) ?? []);
     } catch (e) {
       console.error("fetchOrder", e);
-      setError("エラーが発生しました。もう一度お試しください。\nเกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง");
+      setError(isEn ? tr.errorGeneric : "エラーが発生しました。もう一度お試しください。\nเกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง");
     } finally {
       setLoading(false);
     }
@@ -247,11 +255,11 @@ function TrackContent() {
         setSlipAmountInput(String(amount));
         setSlipOcrDone(true);
       } else {
-        setSlipError("金額を読み取れませんでした。手動で入力してください。\nไม่สามารถอ่านจำนวนเงินได้ กรุณากรอกด้วยตนเอง");
+        setSlipError(isEn ? "Could not read amount. Please enter manually." : "金額を読み取れませんでした。手動で入力してください。\nไม่สามารถอ่านจำนวนเงินได้ กรุณากรอกด้วยตนเอง");
       }
     } catch {
       if (!isMountedRef.current || runId !== ocrRunIdRef.current) return;
-      setSlipError("OCRの読み取りに失敗しました。手動で入力してください。\nOCR ล้มเหลว กรุณากรอกด้วยตนเอง");
+      setSlipError(isEn ? "OCR failed. Please enter the amount manually." : "OCRの読み取りに失敗しました。手動で入力してください。\nOCR ล้มเหลว กรุณากรอกด้วยตนเอง");
     } finally {
       if (!isMountedRef.current || runId !== ocrRunIdRef.current) return;
       setIsOcrRunning(false);
@@ -323,13 +331,15 @@ function TrackContent() {
         {/* Title */}
         <div className="text-center">
           <h1 className="text-2xl font-extrabold text-amber-950 mb-1">
-            <DualLanguageLabel primary="注文状況を確認" secondary="ตรวจสอบสถานะคำสั่งซื้อ" />
+            {isEn ? tr.pageTitle : <DualLanguageLabel primary="注文状況を確認" secondary="ตรวจสอบสถานะคำสั่งซื้อ" />}
           </h1>
           <p className="text-gray-500 text-sm">
-            <DualLanguageLabel
-              primary="注文番号を入力してください"
-              secondary="กรอกหมายเลขคำสั่งซื้อ"
-            />
+            {isEn ? tr.pageSub : (
+              <DualLanguageLabel
+                primary="注文番号を入力してください"
+                secondary="กรอกหมายเลขคำสั่งซื้อ"
+              />
+            )}
           </p>
         </div>
 
@@ -339,7 +349,7 @@ function TrackContent() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="注文番号（#付き・先頭8桁可）/ Order ID"
+            placeholder={isEn ? tr.searchPlaceholder : "注文番号（#付き・先頭8桁可）/ Order ID"}
             className="flex-1 px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-800 placeholder:text-gray-400 focus:ring-2 focus:ring-amber-400 focus:border-transparent transition text-base"
           />
           <button
@@ -348,7 +358,7 @@ function TrackContent() {
             className="px-5 py-3 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-bold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors active:scale-95 shadow-sm"
           >
             {loading ? <Clock size={18} className="animate-spin" /> : <Search size={18} />}
-            確認
+            {tr.searchButton}
           </button>
         </form>
 
@@ -368,10 +378,12 @@ function TrackContent() {
                 <div className="flex items-start gap-2">
                   <AlertCircle size={20} className="text-orange-500 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-orange-700 font-bold text-sm">お支払いスリップが未提出です</p>
-                    <p className="text-orange-500 text-xs mt-0.5">ยังไม่ได้อัพโหลดสลิปการโอนเงิน</p>
+                    <p className="text-orange-700 font-bold text-sm">
+                      {isEn ? tr.slipPendingTitle : "お支払いスリップが未提出です"}
+                    </p>
+                    {!isEn && <p className="text-orange-500 text-xs mt-0.5">ยังไม่ได้อัพโหลดสลิปการโอนเงิน</p>}
                     <p className="text-orange-600 text-xs mt-1">
-                      難しい場合は、公式LINEに「注文番号＋スリップ写真」を送ってください。
+                      {isEn ? tr.slipPendingLineFallback : "難しい場合は、公式LINEに「注文番号＋スリップ写真」を送ってください。"}
                     </p>
                   </div>
                 </div>
@@ -381,12 +393,12 @@ function TrackContent() {
                   className="w-full py-2 rounded-xl border border-green-200 bg-green-50 text-green-700 text-sm font-semibold flex items-center justify-center gap-2"
                 >
                   {copied === "lineTemplate" ? <Check size={15} /> : <Copy size={15} />}
-                  {copied === "lineTemplate" ? "Copied" : "LINE用にコピー"}
+                  {copied === "lineTemplate" ? "Copied" : tr.slipCopyLine}
                 </button>
                 {slipError && <p className="text-red-600 text-sm">{slipError}</p>}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    金額（任意）/ จำนวนเงิน (ไม่บังคับ)
+                    {isEn ? tr.amountLabel : "金額（任意）/ จำนวนเงิน (ไม่บังคับ)"}
                   </label>
                   <input
                     type="number"
@@ -409,15 +421,15 @@ function TrackContent() {
                     {isOcrRunning ? (
                       <>
                         <Loader2 size={16} className="animate-spin flex-shrink-0" />
-                        読み取り中... / กำลังอ่าน...
+                        {tr.slipOcrRunning}
                       </>
                     ) : (
-                      "スリップの金額を自動入力（任意）"
+                      tr.slipOcrButton
                     )}
                   </button>
                   {slipOcrDone && slipAmountInput !== "" && (
                     <p className="mt-1.5 text-gray-600 text-xs">
-                      OCRで金額候補を入力しました。最終確認をお願いします。
+                      {tr.slipOcrDoneHint}
                     </p>
                   )}
                 </div>
@@ -434,7 +446,7 @@ function TrackContent() {
                     className="w-full py-3 border-2 border-dashed border-orange-300 rounded-xl text-orange-600 font-medium flex items-center justify-center gap-2"
                   >
                     <Upload size={18} />
-                    スリップをアップロード / อัพโหลดสลิป
+                    {isEn ? tr.slipSelectButton : "スリップをアップロード / อัพโหลดสลิป"}
                   </button>
                 ) : (
                   <button
@@ -443,7 +455,10 @@ function TrackContent() {
                     disabled={slipUploading}
                     className="w-full py-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold flex items-center justify-center gap-2 disabled:opacity-60"
                   >
-                    {slipUploading ? <><Loader2 size={18} className="animate-spin" /> アップロード中...</> : <><Upload size={18} /> アップロードする</>}
+                    {slipUploading
+                      ? <><Loader2 size={18} className="animate-spin" /> {tr.slipUploading}</>
+                      : <><Upload size={18} /> {tr.slipUploadButton}</>
+                    }
                   </button>
                 )}
               </section>
@@ -452,16 +467,18 @@ function TrackContent() {
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-green-600 font-medium bg-green-50 border border-green-200 rounded-xl p-3">
                   <CheckCircle size={18} />
-                  スリップをアップロードしました
-                  <span className="text-green-500 text-xs">(อัพโหลดเรียบร้อย)</span>
+                  {isEn ? tr.slipUploadDone : "スリップをアップロードしました"}
+                  {!isEn && <span className="text-green-500 text-xs">(อัพโหลดเรียบร้อย)</span>}
                 </div>
                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 flex items-start gap-2">
                   <Clock3 size={16} className="text-amber-700 mt-0.5 shrink-0" />
                   <p className="text-xs text-amber-900/90 leading-relaxed">
-                    ご入金確認は通常24〜48時間以内（営業日）に行います。確認後、順次発送いたします。
-                    <span className="block text-amber-700/80 mt-0.5" lang="th">
-                      โดยปกติยืนยันการชำระเงินภายใน 24–48 ชั่วโมง (วันทำการ) และจัดส่งตามลำดับ
-                    </span>
+                    {isEn ? tr.uploadEta : "ご入金確認は通常24〜48時間以内（営業日）に行います。確認後、順次発送いたします。"}
+                    {!isEn && (
+                      <span className="block text-amber-700/80 mt-0.5" lang="th">
+                        โดยปกติยืนยันการชำระเงินภายใน 24–48 ชั่วโมง (วันทำการ) และจัดส่งตามลำดับ
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>
@@ -474,13 +491,17 @@ function TrackContent() {
               </div>
               <div className="border-t border-amber-100 px-6 py-4 space-y-2 bg-amber-50/50">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500"><DualLanguageLabel primary="注文日" secondary="วันที่สั่ง" /></span>
+                  <span className="text-gray-500">
+                    {isEn ? tr.orderDateLabel : <DualLanguageLabel primary="注文日" secondary="วันที่สั่ง" />}
+                  </span>
                   <span className="text-gray-800 font-medium">
-                    {new Date(order.created_at).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" })}
+                    {new Date(order.created_at).toLocaleDateString(isEn ? "en-US" : "ja-JP", { year: "numeric", month: "long", day: "numeric" })}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500"><DualLanguageLabel primary="合計" secondary="ยอดรวม" /></span>
+                  <span className="text-gray-500">
+                    {isEn ? tr.orderTotalLabel : <DualLanguageLabel primary="合計" secondary="ยอดรวม" />}
+                  </span>
                   <span className="text-amber-700 font-bold text-base">฿{order.total_amount.toLocaleString()}</span>
                 </div>
               </div>
@@ -491,16 +512,15 @@ function TrackContent() {
               <div className="bg-gray-800 px-4 py-3 flex items-center gap-2">
                 <MessageCircle size={18} className="text-white" />
                 <span className="text-white font-bold text-sm">
-                  メッセージ
-                  <span className="text-white/70 text-xs ml-1">(ข้อความ)</span>
+                  {isEn ? tr.messagesHeading : "メッセージ"}
+                  {!isEn && <span className="text-white/70 text-xs ml-1">(ข้อความ)</span>}
                 </span>
               </div>
               <div className="max-h-80 overflow-y-auto p-4 space-y-3">
                 {messages.length === 0 && (
                   <p className="text-gray-400 text-sm text-center py-4">
-                    メッセージはまだありません
-                    <br />
-                    <span className="text-xs">ยังไม่มีข้อความ</span>
+                    {isEn ? tr.noMessages : "メッセージはまだありません"}
+                    {!isEn && <><br /><span className="text-xs">ยังไม่มีข้อความ</span></>}
                   </p>
                 )}
                 {messages.map((msg) => (
@@ -530,7 +550,7 @@ function TrackContent() {
                   type="text"
                   value={msgText}
                   onChange={(e) => setMsgText(e.target.value)}
-                  placeholder="メッセージを入力... / พิมพ์ข้อความ..."
+                  placeholder={isEn ? tr.messagePlaceholder : "メッセージを入力... / พิมพ์ข้อความ..."}
                   className="flex-1 px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-800 placeholder:text-gray-400 focus:border-amber-400 focus:outline-none"
                 />
                 <button
@@ -548,7 +568,7 @@ function TrackContent() {
         {searched && !loading && !order && !error && (
           <div className="text-center text-gray-400 py-8">
             <Package size={48} className="mx-auto mb-3 text-gray-300" />
-            <p className="text-sm">注文が見つかりませんでした</p>
+            <p className="text-sm">{tr.notFound}</p>
           </div>
         )}
       </main>

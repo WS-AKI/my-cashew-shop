@@ -4,6 +4,7 @@ import "./globals.css";
 import { CartProvider } from "@/context/CartContext";
 import { AudienceProvider } from "@/context/AudienceContext";
 import { AuthSessionProvider } from "@/context/AuthSessionContext";
+import { LanguageProvider } from "@/context/LanguageContext";
 import TierCelebrationModal from "@/components/loyalty/TierCelebrationModal";
 import AuthNoticeToast from "@/components/auth/AuthNoticeToast";
 import { getAudienceFromEnv } from "@/lib/audience";
@@ -68,11 +69,13 @@ export default function RootLayout({
       <body className="antialiased">
         <AudienceProvider audience={audience}>
           <AuthSessionProvider>
-            <CartProvider>{children}</CartProvider>
-            <TierCelebrationModal />
-            <Suspense fallback={null}>
-              <AuthNoticeToast />
-            </Suspense>
+            <LanguageProvider>
+              <CartProvider>{children}</CartProvider>
+              <TierCelebrationModal />
+              <Suspense fallback={null}>
+                <AuthNoticeToast />
+              </Suspense>
+            </LanguageProvider>
           </AuthSessionProvider>
         </AudienceProvider>
       </body>
